@@ -179,17 +179,5 @@ class AQIData(models.Model):
         return max(sources, key=sources.get)
 
 
-class AQIForecast(models.Model):
-    """Forecasted AQI for next 24-72 hours"""
-    area = models.CharField(max_length=100)
-    forecast_date = models.DateTimeField()
-    predicted_aqi = models.IntegerField()
-    confidence = models.FloatField(help_text="Prediction confidence (0-1)")
+
     
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['forecast_date']
-    
-    def __str__(self):
-        return f"{self.area} - {self.forecast_date.strftime('%Y-%m-%d')} - AQI {self.predicted_aqi}"

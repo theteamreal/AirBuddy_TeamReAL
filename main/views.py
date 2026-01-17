@@ -5,10 +5,17 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 from django.db.models import Q
 from django.http import JsonResponse
-from .models import UserHealthProfile, Policy, PolicyVote, AQIData, AQIForecast
+from .models import UserHealthProfile, Policy, PolicyVote, AQIData
 from .forms import HealthProfileForm, PolicyForm
 from datetime import datetime, timedelta
 import random
+from .aqi_predictor import predict_aqi, get_current_aqi
+from .models import AQIData, UserHealthProfile
+from .aqi_predictor import predict_aqi, get_current_aqi, train_model
+
+
+from .aqi_predictor import predict_aqi 
+import os
 
 def home(request):
     """Landing page - Capture The Flag theme"""
@@ -55,10 +62,7 @@ def dashboard(request):
     # Get general Delhi NCR AQI data
     recent_aqi = AQIData.objects.all()[:10]
     
-    # Get forecasts
-    forecasts = AQIForecast.objects.filter(
-        forecast_date__gte=datetime.now()
-    )[:5]
+    
     
     # Get personalized health alerts
     alerts = get_health_alerts(health_profile, location_aqi)
@@ -70,7 +74,6 @@ def dashboard(request):
         'health_profile': health_profile,
         'location_aqi': location_aqi,
         'recent_aqi': recent_aqi,
-        'forecasts': forecasts,
         'alerts': alerts,
         'trending_policies': trending_policies,
     }
@@ -286,3 +289,177 @@ def policy_simulation(request):
     return render(request, 'policy_simulation.html', {
         'policies': policies
     })
+
+
+
+
+def home(request):
+    """Landing page - Capture The Flag theme"""
+    return render(request, 'home.html')
+
+
+def register(request):
+    """User registration with health questionnaire"""
+    if request.method == 'POST':
+        user_form = UserCreationForm(request.POST)
+        health_form = HealthProfileForm(request.POST)
+        
+        if user_form.is_valid() and health_form.is_valid():
+            user = user_form.save()
+            health_profile = health_form.save(commit=False)
+            health_profile.user = user
+            health_profile.save()
+            
+            login(request, user)
+            messages.success(request, 'Registration successful! Welcome to the platform.')
+            return redirect('dashboard')
+    else:
+        user_form = UserCreationForm()
+        health_form = HealthProfileForm()
+    
+    return render(request, 'register.html', {
+        'user_form': user_form,
+        'health_form': health_form
+    })
+
+
+@login_required
+def forecasts(request):
+    """Show AQI forecasts using ML model - supports any city"""
+    
+    # Default city from user profile
+    default_city = "Delhi"
+    try:
+        health_profile = request.user.health_profile
+        if health_profile.location:
+            default_city = health_profile.location
+    except:
+        pass
+    
+    # Get city from query parameter or use default
+    city = request.GET.get('city', default_city).strip()
+    
+    # If no city provided, use default
+    if not city:
+        city = default_city
+    
+    try:
+        # Get current AQI - THIS IS THE EXACT VALUE
+        current_aqi_data = get_current_aqi(city)
+        current_aqi = current_aqi_data.get('aqi', 0)
+        
+        # Ensure current_aqi is an integer for exact display
+        current_aqi = int(current_aqi)
+        current_aqi_data['aqi'] = current_aqi
+        
+        # Get ML predictions (anchored to current AQI)
+        predictions = predict_aqi(city=city)
+        
+        # Popular cities for quick selection
+        major_cities = [
+            'Delhi', 'Mumbai', 'Bangalore', 'Kolkata', 'Chennai',
+            'Hyderabad', 'Pune', 'Ahmedabad', 'Noida', 'Gurgaon',
+            'Chandigarh', 'Jaipur', 'Lucknow', 'Kanpur', 'Nagpur',
+            'Indore', 'Bhopal', 'Patna', 'Rohini', 'Ghaziabad'
+        ]
+        
+        context = {
+            'forecasts': predictions,
+            'current_aqi': current_aqi,
+            'current_aqi_data': current_aqi_data,
+            'city': city,
+            'available_cities': major_cities,
+            'model_type': 'Random Forest ML Model'
+        }
+        
+        return render(request, 'forecasts.html', context)
+        
+    except Exception as e:
+        print(f"Error in forecasts view for {city}: {str(e)}")
+        messages.error(request, f'Unable to get forecast for {city}. Please try another city.')
+        
+        context = {
+            'forecasts': [],
+            'current_aqi': 0,
+            'current_aqi_data': {'city': city, 'time': 'N/A'},
+            'city': city,
+            'available_cities': ['Delhi', 'Mumbai', 'Bangalore'],
+            'model_type': 'Random Forest ML Model'
+        }
+        
+        return render(request, 'forecasts.html', context)
+
+
+@login_required
+def retrain_model(request):
+    """Admin view to retrain the model for specific city"""
+    
+    if not request.user.is_staff:
+        messages.error(request, 'Only administrators can retrain models.')
+        return redirect('forecasts')
+    
+    if request.method == 'POST':
+        city = request.POST.get('city', 'Delhi').strip()
+        
+        try:
+            score = train_model(city)
+            messages.success(
+                request, 
+                f'✓ Model retrained successfully for {city}. R² Score: {score:.4f}'
+            )
+        except Exception as e:
+            messages.error(request, f'Failed to retrain model for {city}: {str(e)}')
+        
+        return redirect('forecasts')
+    
+    # GET request - show retrain form
+    major_cities = [
+        'Delhi', 'Mumbai', 'Bangalore', 'Kolkata', 'Chennai',
+        'Hyderabad', 'Pune', 'Ahmedabad', 'Noida', 'Gurgaon'
+    ]
+    
+    context = {
+        'available_cities': major_cities
+    }
+    
+    return render(request, 'retrain_model.html', context)
+
+
+
+from django.http import JsonResponse
+
+@login_required
+def get_city_aqi_api(request):
+    """API endpoint to get AQI for any city"""
+    city = request.GET.get('city', 'Delhi')
+    
+    try:
+        aqi_data = get_current_aqi(city)
+        return JsonResponse({
+            'status': 'success',
+            'data': aqi_data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=400)
+
+
+@login_required
+def get_city_forecast_api(request):
+    """API endpoint to get forecast for any city"""
+    city = request.GET.get('city', 'Delhi')
+    
+    try:
+        predictions = predict_aqi(city=city)
+        return JsonResponse({
+            'status': 'success',
+            'city': city,
+            'forecasts': predictions
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=400)

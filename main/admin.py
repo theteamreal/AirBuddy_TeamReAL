@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserHealthProfile, Policy, PolicyVote, AQIData, AQIForecast
+from .models import UserHealthProfile, Policy, PolicyVote
 
 @admin.register(UserHealthProfile)
 class UserHealthProfileAdmin(admin.ModelAdmin):
@@ -61,49 +61,7 @@ class PolicyVoteAdmin(admin.ModelAdmin):
     search_fields = ['user__username', 'policy__title']
     readonly_fields = ['created_at']
 
-@admin.register(AQIData)
-class AQIDataAdmin(admin.ModelAdmin):
-    list_display = ['area', 'aqi_value', 'category', 'pm25', 'pm10', 'primary_source', 'timestamp']
-    list_filter = ['area', 'timestamp']
-    search_fields = ['area']
-    readonly_fields = ['category', 'primary_source']
-    
-    fieldsets = (
-        ('Location & Time', {
-            'fields': ('area', 'timestamp')
-        }),
-        ('Air Quality Metrics', {
-            'fields': ('aqi_value', 'category', 'pm25', 'pm10')
-        }),
-        ('Pollution Sources (%)', {
-            'fields': ('traffic_contribution', 'industrial_contribution', 'crop_burning_contribution', 
-                      'construction_contribution', 'other_contribution', 'primary_source')
-        }),
-    )
-    
-    def category(self, obj):
-        return obj.category
-    category.short_description = 'AQI Category'
-    
-    def primary_source(self, obj):
-        return obj.primary_source
-    primary_source.short_description = 'Main Source'
 
-@admin.register(AQIForecast)
-class AQIForecastAdmin(admin.ModelAdmin):
-    list_display = ['area', 'forecast_date', 'predicted_aqi', 'confidence', 'created_at']
-    list_filter = ['area', 'forecast_date', 'created_at']
-    search_fields = ['area']
-    readonly_fields = ['created_at']
-    
-    fieldsets = (
-        ('Forecast Details', {
-            'fields': ('area', 'forecast_date', 'predicted_aqi', 'confidence')
-        }),
-        ('Metadata', {
-            'fields': ('created_at',)
-        }),
-    )
 
 # Customize admin site
 admin.site.site_header = "Pollution Platform Administration"

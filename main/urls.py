@@ -19,8 +19,18 @@ urlpatterns = [
     
     # AQI Features
     path('aqi-map/', views.aqi_map, name='aqi_map'),
-    path('forecasts/', views.forecasts, name='forecasts'),
+    
     
     # Policy Simulation
     path('policy-simulation/', views.policy_simulation, name='policy_simulation'),
+      # Multi-city forecast URLs
+    path('forecasts/', views.forecasts, name='forecasts'),
+    path('forecasts/<str:city>/', views.forecasts, name='forecasts_city'),
+    
+    # Admin model training
+    path('retrain-model/', views.retrain_model, name='retrain_model'),
+    
+    # API endpoints (optional)
+    path('api/aqi/', views.get_city_aqi_api, name='api_city_aqi'),
+    path('api/forecast/', views.get_city_forecast_api, name='api_city_forecast'),
 ]
