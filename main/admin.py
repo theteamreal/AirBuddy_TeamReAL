@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import UserHealthProfile, Policy, PolicyVote, AQIData, AQIForecast
+# darsh - Added PolicyComment import for admin registration
+from .models import UserHealthProfile, Policy, PolicyVote, AQIData, AQIForecast, PolicyComment
 
 @admin.register(UserHealthProfile)
 class UserHealthProfileAdmin(admin.ModelAdmin):
@@ -104,6 +105,18 @@ class AQIForecastAdmin(admin.ModelAdmin):
             'fields': ('created_at',)
         }),
     )
+
+# darsh - Added PolicyComment admin registration for managing comments
+@admin.register(PolicyComment)
+class PolicyCommentAdmin(admin.ModelAdmin):
+    list_display = ['user', 'policy', 'comment_preview', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['user__username', 'policy__title', 'comment']
+    readonly_fields = ['created_at']
+    
+    def comment_preview(self, obj):
+        return obj.comment[:50] + '...' if len(obj.comment) > 50 else obj.comment
+    comment_preview.short_description = 'Comment'
 
 # Customize admin site
 admin.site.site_header = "Pollution Platform Administration"

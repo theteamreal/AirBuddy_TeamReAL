@@ -1,535 +1,244 @@
-{% extends 'base.html' %}
-
-{% block title %}Policy Simulation - Pollution Platform{% endblock %}
-
+﻿{% extends 'base.html' %}
+{% block title %}Policy Impact Simulator{% endblock %}
 {% block extra_css %}
 <style>
-    .simulation-panel {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-        margin-top: 1.5rem;
-    }
-
-    .policy-selector {
-        background: #fff;
-        border: 3px solid #000;
-        padding: 1.5rem;
-    }
-
-    .results-panel {
-        background: #fff;
-        border: 3px solid #000;
-        padding: 1.5rem;
-        position: relative;
-    }
-
-    .results-panel::before {
-        content: '';
-        position: absolute;
-        top: -3px;
-        right: -3px;
-        width: 20px;
-        height: 20px;
-        background: #7bed9f;
-        border: 3px solid #000;
-    }
-
-    .policy-option {
-        background: #f9f9f9;
-        border: 2px solid #000;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .policy-option:hover {
-        background: #f0f0f0;
-        transform: translateX(5px);
-    }
-
-    .policy-option.selected {
-        background: #7bed9f;
-        border-color: #000;
-        font-weight: bold;
-    }
-
-    .comparison-view {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-        margin-top: 2rem;
-    }
-
-    .before-after {
-        text-align: center;
-        padding: 2rem;
-        background: #fff;
-        border: 3px solid #000;
-    }
-
-    .before-after.before {
-        border-color: #ff6b6b;
-    }
-
-    .before-after.after {
-        border-color: #7bed9f;
-    }
-
-    .big-number {
-        font-size: 4rem;
-        font-weight: bold;
-        margin: 1rem 0;
-    }
-
-    .impact-metrics {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-top: 2rem;
-    }
-
-    .metric-card {
-        background: #f9f9f9;
-        border: 2px solid #000;
-        padding: 1.5rem;
-        text-align: center;
-    }
-
-    .metric-value {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin: 0.5rem 0;
-    }
-
-    .metric-label {
-        font-size: 0.85rem;
-        color: #666;
-        text-transform: uppercase;
-    }
-
-    .simulation-controls {
-        background: #f0f0f0;
-        border: 2px solid #000;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .parameter-slider {
-        margin: 1rem 0;
-    }
-
-    .slider {
-        width: 100%;
-        height: 8px;
-        background: #e0e0e0;
-        border: 2px solid #000;
-        outline: none;
-        -webkit-appearance: none;
-    }
-
-    .slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 24px;
-        height: 24px;
-        background: #7bed9f;
-        border: 3px solid #000;
-        cursor: pointer;
-    }
-
-    .slider::-moz-range-thumb {
-        width: 24px;
-        height: 24px;
-        background: #7bed9f;
-        border: 3px solid #000;
-        cursor: pointer;
-    }
-
-    .visualization {
-        margin-top: 2rem;
-        padding: 2rem;
-        background: #fff;
-        border: 3px solid #000;
-    }
-
-    .bar-comparison {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-around;
-        height: 300px;
-        margin-top: 1.5rem;
-        border-bottom: 3px solid #000;
-        padding: 1rem;
-        gap: 2rem;
-    }
-
-    .bar-group {
-        display: flex;
-        gap: 1rem;
-        align-items: flex-end;
-        flex: 1;
-    }
-
-    .bar {
-        flex: 1;
-        max-width: 80px;
-        border: 3px solid #000;
-        position: relative;
-        transition: all 0.5s ease;
-    }
-
-    .bar.before {
-        background: linear-gradient(to top, #ff6b6b, #ffb347);
-    }
-
-    .bar.after {
-        background: linear-gradient(to top, #7bed9f, #ffd93d);
-    }
-
-    .bar-label {
-        text-align: center;
-        margin-top: 1rem;
-        font-weight: bold;
-    }
-
-    .recommendation-box {
-        background: #fffbea;
-        border: 3px solid #ffd93d;
-        padding: 1.5rem;
-        margin-top: 2rem;
-    }
-
-    .hotspot-map {
-        margin-top: 2rem;
-        padding: 1.5rem;
-        background: #fff;
-        border: 3px solid #000;
-    }
-
-    .hotspot-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-
-    .hotspot-item {
-        background: #f9f9f9;
-        border: 2px solid #000;
-        padding: 1rem;
-        text-align: center;
-    }
-
-    .hotspot-item.high {
-        background: #ffcccb;
-        border-color: #ff6b6b;
-    }
-
-    .hotspot-item.medium {
-        background: #fff4cc;
-        border-color: #ffd93d;
-    }
-
-    .hotspot-item.low {
-        background: #d4f4dd;
-        border-color: #7bed9f;
-    }
-
-    .loading-spinner {
-        display: none;
-        text-align: center;
-        padding: 3rem;
-        font-size: 2rem;
-        animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-    }
-
-    @media (max-width: 968px) {
-        .simulation-panel {
-            grid-template-columns: 1fr;
-        }
-        
-        .comparison-view {
-            grid-template-columns: 1fr;
-        }
-    }
+.simulator-container{display:grid;grid-template-columns:350px 1fr;gap:2rem;margin-top:1.5rem}
+.control-panel{background:#fff;border:3px solid #000;padding:1.5rem}
+.results-panel{background:#fff;border:3px solid #000;padding:1.5rem;min-height:500px}
+.section-title{font-size:1.2rem;font-weight:bold;margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid #000}
+.policy-checkbox{display:flex;align-items:center;gap:0.5rem;padding:0.8rem;margin-bottom:0.5rem;background:#f9f9f9;border:2px solid #ddd;cursor:pointer;transition:all 0.2s}
+.policy-checkbox:hover{background:#f0f0f0;transform:translateX(3px)}
+.policy-checkbox.selected{background:#7bed9f;border-color:#000}
+.policy-checkbox input{width:18px;height:18px}
+.policy-icon{font-size:1.5rem}
+.slider-container{margin:1.5rem 0}
+.slider-label{display:flex;justify-content:space-between;margin-bottom:0.5rem;font-weight:bold}
+.slider-value{background:#7bed9f;padding:0.2rem 0.5rem;border:1px solid #000}
+.slider{width:100%;height:8px;-webkit-appearance:none;background:#ddd;border-radius:0;border:2px solid #000}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:#000;cursor:pointer}
+.area-select{width:100%;padding:0.8rem;border:2px solid #000;font-size:1rem;margin-bottom:1rem}
+.simulate-btn{width:100%;padding:1rem;background:#000;color:#7bed9f;border:none;font-size:1.1rem;font-weight:bold;cursor:pointer;margin-top:1rem}
+.simulate-btn:hover{background:#333}
+.simulate-btn:disabled{background:#999;cursor:not-allowed}
+.current-aqi{text-align:center;padding:1rem;background:#ff6b6b;color:#fff;margin-bottom:1.5rem;border:2px solid #000}
+.current-aqi .big{font-size:2.5rem;font-weight:bold}
+.comparison-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-bottom:2rem}
+.aqi-card{text-align:center;padding:2rem;border:3px solid #000}
+.aqi-card.before{background:#ffebee;border-color:#ff6b6b}
+.aqi-card.after{background:#e8f5e9;border-color:#7bed9f}
+.aqi-card .label{font-size:0.9rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem}
+.aqi-card .value{font-size:4rem;font-weight:bold;margin:0.5rem 0}
+.aqi-card .category{font-size:1rem;padding:0.3rem 0.8rem;display:inline-block;border:2px solid #000}
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem}
+.metric-card{background:#f9f9f9;border:2px solid #000;padding:1.5rem;text-align:center}
+.metric-card .icon{font-size:2rem;margin-bottom:0.5rem}
+.metric-card .value{font-size:1.8rem;font-weight:bold;color:#000}
+.metric-card .label{font-size:0.85rem;color:#666;margin-top:0.3rem}
+.area-results{max-height:300px;overflow-y:auto}
+.area-result-row{display:grid;grid-template-columns:1fr 80px 80px 80px;gap:0.5rem;padding:0.8rem;border-bottom:1px solid #ddd;align-items:center}
+.area-result-row:nth-child(odd){background:#f9f9f9}
+.area-result-row .reduction{color:#7bed9f;font-weight:bold}
+.results-header{display:grid;grid-template-columns:1fr 80px 80px 80px;gap:0.5rem;padding:0.8rem;background:#000;color:#7bed9f;font-weight:bold;font-size:0.85rem}
+.no-results{text-align:center;padding:3rem;color:#999}
+.loading{display:none;text-align:center;padding:2rem}
+.loading.active{display:block}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.loading-text{animation:pulse 1.5s infinite}
 </style>
 {% endblock %}
-
 {% block content %}
-<div class="card" style="background: #000; color: #7bed9f; border-color: #7bed9f;">
-    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">⚙️ POLICY IMPACT SIMULATOR</h1>
-    <p style="opacity: 0.8;">Test and analyze the effectiveness of pollution control policies</p>
+<div class="card" style="background:#000;color:#7bed9f;">
+<h1>Policy Impact Simulator</h1>
+<p>Simulate the impact of pollution control policies using real-time AQI data</p>
 </div>
-
-<div class="simulation-controls">
-    <h3 style="margin-bottom: 1rem;">▶ SELECT POLICY TO SIMULATE</h3>
-    <form id="simulation-form">
-        <div class="form-group">
-            <label class="form-label">Policy Type:</label>
-            <select id="policy-select" class="form-select" onchange="loadPolicyDetails()">
-                <option value="">-- Select a Policy --</option>
-                {% for policy in policies %}
-                <option value="{{ policy.id }}" data-type="{{ policy.get_policy_type_display }}" data-title="{{ policy.title }}">
-                    {{ policy.title }} ({{ policy.get_policy_type_display }})
-                </option>
-                {% endfor %}
-                <option value="custom-odd-even">Custom: Odd-Even Traffic Rule</option>
-                <option value="custom-construction">Custom: Construction Ban (Peak Hours)</option>
-                <option value="custom-firecracker">Custom: Complete Firecracker Ban</option>
-                <option value="custom-crop">Custom: Crop Burning Penalties</option>
-            </select>
-        </div>
-
-        <div id="policy-details" style="display: none; margin-top: 1rem; padding: 1rem; background: #f9f9f9; border: 2px solid #000;">
-            <p id="policy-description"></p>
-        </div>
-
-        <div class="parameter-slider" style="margin-top: 1.5rem;">
-            <label class="form-label">Implementation Strictness: <span id="strictness-value">50</span>%</label>
-            <input type="range" id="strictness" class="slider" min="0" max="100" value="50" oninput="document.getElementById('strictness-value').textContent = this.value">
-        </div>
-
-        <div class="parameter-slider">
-            <label class="form-label">Duration (Days): <span id="duration-value">30</span></label>
-            <input type="range" id="duration" class="slider" min="7" max="180" value="30" oninput="document.getElementById('duration-value').textContent = this.value">
-        </div>
-
-        <div style="text-align: center; margin-top: 1.5rem;">
-            <button type="button" class="btn" onclick="runSimulation()">→ RUN SIMULATION</button>
-        </div>
-    </form>
+<div class="simulator-container">
+<div class="control-panel">
+<div class="current-aqi">
+<div>Current Avg AQI</div>
+<div class="big">{{ current_avg_aqi }}</div>
+<div>Delhi NCR Region</div>
 </div>
-
-<div id="loading" class="loading-spinner">
-    ⚙️ SIMULATING POLICY IMPACT...
+<div class="section-title">Select Policies</div>
+{% for pt in policy_types %}
+<label class="policy-checkbox" onclick="togglePolicy(this, '{{ pt.code }}')">
+<input type="checkbox" name="policy" value="{{ pt.code }}">
+<span class="policy-icon">{{ pt.icon }}</span>
+<span>{{ pt.name }}</span>
+</label>
+{% endfor %}
+<div class="slider-container">
+<div class="slider-label">
+<span>Implementation Level</span>
+<span class="slider-value" id="impl-value">75%</span>
 </div>
-
-<div id="results" style="display: none;">
-    <div class="comparison-view">
-        <div class="before-after before">
-            <h3 style="margin-bottom: 1rem;">BEFORE POLICY</h3>
-            <div class="big-number" id="before-aqi" style="color: #ff6b6b;">---</div>
-            <div class="aqi-badge aqi-unhealthy">Current State</div>
-        </div>
-
-        <div class="before-after after">
-            <h3 style="margin-bottom: 1rem;">AFTER POLICY</h3>
-            <div class="big-number" id="after-aqi" style="color: #7bed9f;">---</div>
-            <div class="aqi-badge aqi-moderate">Projected State</div>
-        </div>
-    </div>
-
-    <div class="impact-metrics">
-        <div class="metric-card">
-            <div class="metric-label">AQI Reduction</div>
-            <div class="metric-value" id="reduction" style="color: #7bed9f;">--</div>
-            <div style="font-size: 0.9rem; color: #666;">points</div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-label">Improvement</div>
-            <div class="metric-value" id="percentage" style="color: #7bed9f;">--%</div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-label">Estimated Cost</div>
-            <div class="metric-value" id="cost" style="font-size: 1.8rem;">₹--Cr</div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-label">Health Impact</div>
-            <div class="metric-value" id="health" style="font-size: 1.5rem; color: #7bed9f;">High ✓</div>
-        </div>
-    </div>
-
-    <div class="visualization">
-        <div class="card-header">📊 Source-Wise Impact Analysis</div>
-        <div class="bar-comparison">
-            <div style="text-align: center; flex: 1;">
-                <div class="bar-group">
-                    <div>
-                        <div class="bar before" id="traffic-before" style="height: 60%;"></div>
-                        <div class="bar-label">Traffic</div>
-                    </div>
-                    <div>
-                        <div class="bar before" id="industry-before" style="height: 40%;"></div>
-                        <div class="bar-label">Industry</div>
-                    </div>
-                    <div>
-                        <div class="bar before" id="crop-before" style="height: 50%;"></div>
-                        <div class="bar-label">Crop</div>
-                    </div>
-                    <div>
-                        <div class="bar before" id="construction-before" style="height: 35%;"></div>
-                        <div class="bar-label">Construction</div>
-                    </div>
-                </div>
-                <div style="margin-top: 1rem; font-weight: bold;">BEFORE</div>
-            </div>
-
-            <div style="text-align: center; flex: 1;">
-                <div class="bar-group">
-                    <div>
-                        <div class="bar after" id="traffic-after" style="height: 40%;"></div>
-                        <div class="bar-label">Traffic</div>
-                    </div>
-                    <div>
-                        <div class="bar after" id="industry-after" style="height: 35%;"></div>
-                        <div class="bar-label">Industry</div>
-                    </div>
-                    <div>
-                        <div class="bar after" id="crop-after" style="height: 30%;"></div>
-                        <div class="bar-label">Crop</div>
-                    </div>
-                    <div>
-                        <div class="bar after" id="construction-after" style="height: 20%;"></div>
-                        <div class="bar-label">Construction</div>
-                    </div>
-                </div>
-                <div style="margin-top: 1rem; font-weight: bold;">AFTER</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="hotspot-map">
-        <div class="card-header">🎯 High-Risk Areas & Peak Times</div>
-        <div style="margin: 1rem 0;">
-            <strong>Hotspot Areas:</strong>
-        </div>
-        <div class="hotspot-grid">
-            <div class="hotspot-item high">
-                <strong>Anand Vihar</strong>
-                <div style="margin-top: 0.5rem; font-size: 0.9rem;">Critical</div>
-            </div>
-            <div class="hotspot-item high">
-                <strong>Rohini</strong>
-                <div style="margin-top: 0.5rem; font-size: 0.9rem;">Critical</div>
-            </div>
-            <div class="hotspot-item medium">
-                <strong>Connaught Place</strong>
-                <div style="margin-top: 0.5rem; font-size: 0.9rem;">High</div>
-            </div>
-            <div class="hotspot-item medium">
-                <strong>Dwarka</strong>
-                <div style="margin-top: 0.5rem; font-size: 0.9rem;">High</div>
-            </div>
-            <div class="hotspot-item low">
-                <strong>Lodhi Road</strong>
-                <div style="margin-top: 0.5rem; font-size: 0.9rem;">Moderate</div>
-            </div>
-        </div>
-        
-        <div style="margin: 1.5rem 0 0.5rem 0;">
-            <strong>Peak Pollution Times:</strong>
-        </div>
-        <div style="background: #f9f9f9; border: 2px solid #000; padding: 1rem;">
-            <p style="margin: 0.3rem 0;">• <strong>Morning:</strong> 7:00 AM - 10:00 AM (Rush Hour)</p>
-            <p style="margin: 0.3rem 0;">• <strong>Evening:</strong> 6:00 PM - 9:00 PM (Rush Hour)</p>
-            <p style="margin: 0.3rem 0;">• <strong>Night:</strong> 10:00 PM - 2:00 AM (Crop Burning)</p>
-        </div>
-    </div>
-
-    <div class="recommendation-box">
-        <div class="card-header">💡 RECOMMENDATIONS</div>
-        <div id="recommendations" style="padding: 1rem 0;">
-            <p><strong>For Citizens:</strong></p>
-            <ul style="margin: 0.5rem 0 1rem 1.5rem;">
-                <li>Avoid outdoor activities during peak pollution hours</li>
-                <li>Use public transport or carpool during policy implementation</li>
-                <li>Wear N95 masks in high-risk areas</li>
-            </ul>
-            
-            <p><strong>For Authorities:</strong></p>
-            <ul style="margin: 0.5rem 0 0 1.5rem;">
-                <li>Focus enforcement in identified hotspot areas</li>
-                <li>Increase public transport capacity during peak hours</li>
-                <li>Set up real-time monitoring stations</li>
-            </ul>
-        </div>
-    </div>
+<input type="range" class="slider" id="implementation-level" min="25" max="100" value="75" oninput="updateSlider('impl-value', this.value + '%')">
 </div>
-
-<div class="card" style="margin-top: 2rem; background: #f9f9f9;">
-    <div class="card-header">ℹ️ ABOUT SIMULATIONS</div>
-    <div style="padding: 0.5rem 0;">
-        <p style="margin-bottom: 0.5rem;">This simulator uses AI models trained on historical pollution data, policy implementation results, and environmental factors to predict policy impact.</p>
-        <p style="margin-bottom: 0.5rem;"><strong>Data Sources:</strong> Historical AQI data, traffic patterns, industrial activity logs, weather data, and previous policy outcomes.</p>
-        <p style="margin-bottom: 0;"><strong>Accuracy:</strong> Predictions are estimates based on similar historical scenarios. Actual results may vary based on implementation quality and external factors.</p>
-    </div>
+<div class="slider-container">
+<div class="slider-label">
+<span>Duration (Days)</span>
+<span class="slider-value" id="duration-value">30</span>
+</div>
+<input type="range" class="slider" id="duration" min="7" max="180" value="30" oninput="updateSlider('duration-value', this.value)">
+</div>
+<div class="section-title">Select Area</div>
+<select class="area-select" id="area-select">
+<option value="all">All Areas (Delhi NCR Average)</option>
+{% for area in areas %}
+<option value="{{ area }}">{{ area }}</option>
+{% endfor %}
+</select>
+<button class="simulate-btn" onclick="runSimulation()" id="simulate-btn">Run Simulation</button>
+</div>
+<div class="results-panel">
+<div class="no-results" id="no-results">
+<h2>Select policies and click "Run Simulation"</h2>
+<p>Choose one or more pollution control policies to see their projected impact on air quality.</p>
+</div>
+<div class="loading" id="loading">
+<div class="loading-text" style="font-size:1.5rem;">Calculating impact...</div>
+</div>
+<div id="results-content" style="display:none;">
+<div class="section-title">Projected Impact</div>
+<div class="comparison-grid">
+<div class="aqi-card before">
+<div class="label">Before</div>
+<div class="value" id="before-aqi">--</div>
+<div class="category" id="before-category">--</div>
+</div>
+<div class="aqi-card after">
+<div class="label">After Policy</div>
+<div class="value" id="after-aqi">--</div>
+<div class="category" id="after-category">--</div>
+</div>
+</div>
+<div class="metrics-grid">
+<div class="metric-card">
+<div class="icon"></div>
+<div class="value" id="reduction-pct">--</div>
+<div class="label">AQI Reduction</div>
+</div>
+<div class="metric-card">
+<div class="icon"></div>
+<div class="value" id="health-benefit">--</div>
+<div class="label">Lives Saved (per million)</div>
+</div>
+<div class="metric-card">
+<div class="icon"></div>
+<div class="value" id="cost">--</div>
+<div class="label">Cost ( Crores)</div>
+</div>
+</div>
+<div class="section-title">Impact by Area (Top 10)</div>
+<div class="results-header">
+<span>Area</span>
+<span>Before</span>
+<span>After</span>
+<span>Change</span>
+</div>
+<div class="area-results" id="area-results"></div>
+</div>
+</div>
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
-function loadPolicyDetails() {
-    const select = document.getElementById('policy-select');
-    const details = document.getElementById('policy-details');
-    const description = document.getElementById('policy-description');
-    
-    if (select.value) {
-        const option = select.options[select.selectedIndex];
-        const title = option.getAttribute('data-title') || option.text;
-        description.textContent = `Selected: ${title}`;
-        details.style.display = 'block';
+var selectedPolicies = [];
+function togglePolicy(el, code) {
+    var checkbox = el.querySelector('input');
+    checkbox.checked = !checkbox.checked;
+    el.classList.toggle('selected', checkbox.checked);
+    if (checkbox.checked) {
+        if (selectedPolicies.indexOf(code) === -1) selectedPolicies.push(code);
     } else {
-        details.style.display = 'none';
+        selectedPolicies = selectedPolicies.filter(function(p) { return p !== code; });
     }
 }
-
+function updateSlider(id, value) {
+    document.getElementById(id).textContent = value;
+}
+function getCookie(n) {
+    var v = null;
+    if (document.cookie) document.cookie.split(';').forEach(function(c) {
+        if (c.trim().indexOf(n + '=') == 0) v = decodeURIComponent(c.trim().substring(n.length + 1));
+    });
+    return v;
+}
 function runSimulation() {
-    const select = document.getElementById('policy-select');
-    const strictness = document.getElementById('strictness').value;
-    const duration = document.getElementById('duration').value;
-    
-    if (!select.value) {
-        alert('Please select a policy to simulate');
+    if (selectedPolicies.length === 0) {
+        alert('Please select at least one policy');
         return;
     }
-    
-    // Show loading
-    document.getElementById('results').style.display = 'none';
-    document.getElementById('loading').style.display = 'block';
-    
-    // Simulate API call
-    setTimeout(() => {
-        const beforeAQI = Math.floor(Math.random() * (350 - 250) + 250);
-        const reduction = Math.floor((strictness / 100) * (beforeAQI * 0.4));
-        const afterAQI = beforeAQI - reduction;
-        const percentage = Math.floor((reduction / beforeAQI) * 100);
-        const cost = Math.floor(Math.random() * (500 - 50) + 50);
-        
-        // Update UI
-        document.getElementById('before-aqi').textContent = beforeAQI;
-        document.getElementById('after-aqi').textContent = afterAQI;
-        document.getElementById('reduction').textContent = reduction;
-        document.getElementById('percentage').textContent = percentage + '%';
-        document.getElementById('cost').textContent = '₹' + cost + 'Cr';
-        
-        // Update bars with animation
-        const trafficReduction = strictness > 50 ? 30 : 15;
-        const industryReduction = strictness > 60 ? 20 : 10;
-        const cropReduction = strictness > 70 ? 35 : 20;
-        const constructionReduction = strictness > 40 ? 40 : 25;
-        
-        document.getElementById('traffic-after').style.height = (60 - trafficReduction) + '%';
-        document.getElementById('industry-after').style.height = (40 - industryReduction) + '%';
-        document.getElementById('crop-after').style.height = (50 - cropReduction) + '%';
-        document.getElementById('construction-after').style.height = (35 - constructionReduction) + '%';
-        
-        // Hide loading, show results
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('results').style.display = 'block';
-        
-        // Scroll to results
-        document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
-    }, 2000);
+    var btn = document.getElementById('simulate-btn');
+    btn.disabled = true;
+    btn.textContent = 'Calculating...';
+    document.getElementById('no-results').style.display = 'none';
+    document.getElementById('results-content').style.display = 'none';
+    document.getElementById('loading').classList.add('active');
+    var data = {
+        policies: selectedPolicies,
+        implementation_level: document.getElementById('implementation-level').value,
+        duration: document.getElementById('duration').value,
+        area: document.getElementById('area-select').value
+    };
+    fetch('/policy-simulation/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        document.getElementById('loading').classList.remove('active');
+        btn.disabled = false;
+        btn.textContent = 'Run Simulation';
+        if (result.success) {
+            displayResults(result);
+        } else {
+            alert('Simulation failed');
+        }
+    })
+    .catch(function(err) {
+        document.getElementById('loading').classList.remove('active');
+        btn.disabled = false;
+        btn.textContent = 'Run Simulation';
+        console.error(err);
+        alert('Error running simulation');
+    });
+}
+function displayResults(data) {
+    var s = data.summary;
+    document.getElementById('results-content').style.display = 'block';
+    document.getElementById('before-aqi').textContent = s.avg_before_aqi;
+    document.getElementById('after-aqi').textContent = s.avg_after_aqi;
+    document.getElementById('before-category').textContent = s.before_category;
+    document.getElementById('after-category').textContent = s.after_category;
+    document.getElementById('reduction-pct').textContent = s.avg_reduction + '%';
+    document.getElementById('health-benefit').textContent = s.total_health_benefit;
+    document.getElementById('cost').textContent = s.total_cost_crores;
+    var beforeCard = document.querySelector('.aqi-card.before');
+    var afterCard = document.querySelector('.aqi-card.after');
+    beforeCard.style.background = getAqiColor(s.avg_before_aqi);
+    afterCard.style.background = getAqiColor(s.avg_after_aqi);
+    var areaHtml = '';
+    data.area_results.forEach(function(a) {
+        areaHtml += '<div class="area-result-row">';
+        areaHtml += '<span>' + a.area + '</span>';
+        areaHtml += '<span>' + a.before_aqi + '</span>';
+        areaHtml += '<span>' + a.after_aqi + '</span>';
+        areaHtml += '<span class="reduction">-' + a.reduction + '%</span>';
+        areaHtml += '</div>';
+    });
+    document.getElementById('area-results').innerHTML = areaHtml;
+}
+function getAqiColor(aqi) {
+    if (aqi <= 50) return '#a8e6cf';
+    if (aqi <= 100) return '#dcedc1';
+    if (aqi <= 200) return '#ffd3b6';
+    if (aqi <= 300) return '#ffaaa5';
+    if (aqi <= 400) return '#ff8b94';
+    return '#c71c4a';
 }
 </script>
 {% endblock %}

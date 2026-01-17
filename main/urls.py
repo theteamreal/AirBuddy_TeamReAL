@@ -16,6 +16,11 @@ urlpatterns = [
     path('policies/', views.policies, name='policies'),
     path('policies/create/', views.create_policy, name='create_policy'),
     path('policies/<int:policy_id>/vote/', views.vote_policy, name='vote_policy'),
+    # darsh - Added URL for adding comments to policies
+    path('policies/<int:policy_id>/comment/', views.comment_policy, name='comment_policy'),
+    # darsh - Added URLs for deleting policies and comments
+    path('policies/<int:policy_id>/delete/', views.delete_policy, name='delete_policy'),
+    path('comments/<int:comment_id>/delete/', views.delete_comment, name='delete_comment'),
     
     # AQI Features
     path('aqi-map/', views.aqi_map, name='aqi_map'),
