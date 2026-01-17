@@ -1,0 +1,626 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Live Camera - Real-time Smoke Detection{% endblock %}
+
+{% block extra_css %}
+<style>
+    .camera-container {
+        position: relative;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    
+    #videoElement {
+        width: 100%;
+        height: auto;
+        display: block;
+        background: #000;
+    }
+    
+    #canvas {
+        display: none;
+    }
+    
+    .smoke-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+    
+    .smoke-box {
+        position: absolute;
+        border: 3px solid #ff0000;
+        background: rgba(255, 0, 0, 0.2);
+        animation: pulse-border 1s infinite;
+    }
+    
+    @keyframes pulse-border {
+        0%, 100% { border-color: #ff0000; }
+        50% { border-color: #ff6b6b; }
+    }
+    
+    .live-indicator {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: #dc3545;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        animation: pulse 2s infinite;
+        z-index: 10;
+    }
+    
+    .live-dot {
+        width: 10px;
+        height: 10px;
+        background: white;
+        border-radius: 50%;
+        animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .detection-panel {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-top: 1rem;
+    }
+    
+    .metric-display {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .intensity-bar {
+        height: 40px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        margin: 1rem 0;
+    }
+    
+    .intensity-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #ffc107, #ff7e00, #dc3545);
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 1rem;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .controls {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn-camera {
+        flex: 1;
+        padding: 1rem;
+        font-size: 1.1rem;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 150px;
+    }
+    
+    .btn-camera:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    }
+    
+    .btn-start {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-stop {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-capture {
+        background: #007bff;
+        color: white;
+    }
+    
+    .alert-box {
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-top: 1rem;
+        font-weight: bold;
+        text-align: center;
+        animation: slideIn 0.5s ease;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .smoke-particles {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 5;
+    }
+    
+    .particle {
+        position: absolute;
+        background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 70%);
+        border-radius: 50%;
+        animation: float-up 3s infinite;
+    }
+    
+    @keyframes float-up {
+        0% {
+            opacity: 0;
+            transform: translateY(0) scale(0.5);
+        }
+        50% {
+            opacity: 0.7;
+        }
+        100% {
+            opacity: 0;
+            transform: translateY(-100px) scale(1);
+        }
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="text-center mb-4">
+        <h1>📹 Live Camera Detection</h1>
+        <p class="lead">Real-time smoke and pollution detection</p>
+        <div>
+            <span class="badge bg-info">Base AQI: {{ current_aqi }}</span>
+            <span class="badge bg-secondary">{{ user_city }}</span>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Camera Feed -->
+        <div class="col-md-8">
+            <div class="camera-container">
+                <!-- Live Indicator -->
+                <div class="live-indicator" id="liveIndicator" style="display: none;">
+                    <div class="live-dot"></div>
+                    <span>LIVE</span>
+                </div>
+                
+                <!-- Video Element -->
+                <video id="videoElement" autoplay playsinline></video>
+                
+                <!-- Smoke Overlay -->
+                <div class="smoke-overlay" id="smokeOverlay"></div>
+                
+                <!-- Smoke Particles Effect -->
+                <div class="smoke-particles" id="smokeParticles"></div>
+                
+                <!-- Hidden Canvas for Capture -->
+                <canvas id="canvas"></canvas>
+            </div>
+            
+            <!-- Controls -->
+            <div class="controls">
+                <button class="btn-camera btn-start" id="startBtn" onclick="startCamera()">
+                    📹 Start Camera
+                </button>
+                <button class="btn-camera btn-stop" id="stopBtn" onclick="stopCamera()" style="display: none;">
+                    ⏹️ Stop Camera
+                </button>
+                <button class="btn-camera btn-capture" id="captureBtn" onclick="captureSnapshot()" style="display: none;">
+                    📸 Save Snapshot
+                </button>
+            </div>
+            
+            <!-- Instructions -->
+            <div class="alert alert-info mt-3">
+                <strong>💡 How to use:</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Click "Start Camera" to begin live detection</li>
+                    <li>Point camera at smoke, dust, or pollution sources</li>
+                    <li>Red boxes will highlight detected smoke regions</li>
+                    <li>Watch real-time AQI calculations on the right</li>
+                    <li>Click "Save Snapshot" to record the detection</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Detection Panel -->
+        <div class="col-md-4">
+            <div class="detection-panel">
+                <h4 class="text-center mb-4">🔍 Live Detection</h4>
+                
+                <!-- Smoke Intensity -->
+                <div class="metric-display mb-3">
+                    <div class="metric-label">Smoke Intensity</div>
+                    <div class="metric-value" id="intensityValue">0%</div>
+                    <div class="intensity-bar">
+                        <div class="intensity-fill" id="intensityBar" style="width: 0%">
+                            <span id="intensityText">0%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Predicted AQI -->
+                <div class="metric-display mb-3">
+                    <div class="metric-label">Predicted AQI</div>
+                    <div class="metric-value" id="predictedAqi" style="color: #00e400;">{{ current_aqi }}</div>
+                    <div class="status-badge" id="statusBadge" style="background: #00e400; color: #000;">
+                        CLEAN
+                    </div>
+                </div>
+                
+                <!-- AQI Rise -->
+                <div class="metric-display mb-3">
+                    <div class="metric-label">AQI Rise from Base</div>
+                    <div class="metric-value" id="aqiRise" style="color: #ffc107;">+0</div>
+                </div>
+                
+                <!-- Smoke Regions Detected -->
+                <div class="metric-display mb-3">
+                    <div class="metric-label">Smoke Regions Detected</div>
+                    <div class="metric-value" id="regionsCount">0</div>
+                </div>
+                
+                <!-- Haziness Score -->
+                <div class="metric-display">
+                    <div class="metric-label">Haziness Score</div>
+                    <div class="metric-value" id="hazinessScore">0.000</div>
+                </div>
+                
+                <!-- Alert Message -->
+                <div id="alertMessage" style="display: none;"></div>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">Detection Stats</h6>
+                    <p class="mb-1"><strong>Frames Analyzed:</strong> <span id="framesAnalyzed">0</span></p>
+                    <p class="mb-1"><strong>Detection Active:</strong> <span id="detectionStatus">No</span></p>
+                    <p class="mb-0"><strong>Last Updated:</strong> <span id="lastUpdated">-</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Back Button -->
+    <div class="text-center mt-4">
+        <a href="{% url 'snap_to_aqi' %}" class="btn btn-outline-primary btn-lg">← Back to Upload</a>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-lg">Dashboard</a>
+    </div>
+</div>
+
+<script>
+    let video = document.getElementById('videoElement');
+    let canvas = document.getElementById('canvas');
+    let stream = null;
+    let detectionInterval = null;
+    let framesCount = 0;
+    const baseAqi = {{ current_aqi }};
+    
+    async function startCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'environment',  // Use back camera on mobile
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                } 
+            });
+            
+            video.srcObject = stream;
+            
+            // Update UI
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'block';
+            document.getElementById('captureBtn').style.display = 'block';
+            document.getElementById('liveIndicator').style.display = 'flex';
+            document.getElementById('detectionStatus').textContent = 'Yes';
+            
+            // Start detection
+            detectionInterval = setInterval(analyzeFrame, 1000);  // Analyze every 1 second
+            
+        } catch (error) {
+            alert('Error accessing camera: ' + error.message);
+            console.error('Camera error:', error);
+        }
+    }
+    
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        
+        if (detectionInterval) {
+            clearInterval(detectionInterval);
+            detectionInterval = null;
+        }
+        
+        // Clear overlay
+        document.getElementById('smokeOverlay').innerHTML = '';
+        document.getElementById('smokeParticles').innerHTML = '';
+        
+        // Update UI
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('captureBtn').style.display = 'none';
+        document.getElementById('liveIndicator').style.display = 'none';
+        document.getElementById('detectionStatus').textContent = 'No';
+    }
+    
+    async function analyzeFrame() {
+        if (!stream) return;
+        
+        try {
+            // Capture current frame
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            // Convert to base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send to server for analysis
+            const response = await fetch("{% url 'analyze_camera_frame' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `image=${encodeURIComponent(imageData)}`
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                updateDetectionUI(data);
+                framesCount++;
+                document.getElementById('framesAnalyzed').textContent = framesCount;
+                document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+            }
+            
+        } catch (error) {
+            console.error('Analysis error:', error);
+        }
+    }
+    
+    function updateDetectionUI(data) {
+        // Update intensity
+        const intensity = Math.round(data.smoke_intensity * 100);
+        document.getElementById('intensityValue').textContent = intensity + '%';
+        document.getElementById('intensityBar').style.width = intensity + '%';
+        document.getElementById('intensityText').textContent = intensity + '%';
+        
+        // Update AQI
+        document.getElementById('predictedAqi').textContent = data.predicted_aqi;
+        document.getElementById('predictedAqi').style.color = data.alert_color;
+        document.getElementById('aqiRise').textContent = '+' + data.aqi_rise;
+        
+        // Update status badge
+        const badge = document.getElementById('statusBadge');
+        badge.textContent = data.pollution_level;
+        badge.style.background = data.alert_color;
+        badge.style.color = intensity > 50 ? '#fff' : '#000';
+        
+        // Update regions count
+        document.getElementById('regionsCount').textContent = data.smoke_regions.length;
+        
+        // Update haziness
+        document.getElementById('hazinessScore').textContent = data.haziness_score.toFixed(3);
+        
+        // Draw smoke boxes
+        drawSmokeBoxes(data.smoke_regions);
+        
+        // Show alert if smoke detected
+        if (data.smoke_detected) {
+            showAlert(data.pollution_level, data.predicted_aqi);
+            addSmokeParticles(data.smoke_regions);
+        } else {
+            hideAlert();
+            clearSmokeParticles();
+        }
+    }
+    
+    function drawSmokeBoxes(regions) {
+        const overlay = document.getElementById('smokeOverlay');
+        overlay.innerHTML = '';
+        
+        if (!regions || regions.length === 0) return;
+        
+        // Get video dimensions
+        const videoRect = video.getBoundingClientRect();
+        const scaleX = videoRect.width / video.videoWidth;
+        const scaleY = videoRect.height / video.videoHeight;
+        
+        regions.forEach(region => {
+            const box = document.createElement('div');
+            box.className = 'smoke-box';
+            box.style.left = (region.x * scaleX) + 'px';
+            box.style.top = (region.y * scaleY) + 'px';
+            box.style.width = (region.width * scaleX) + 'px';
+            box.style.height = (region.height * scaleY) + 'px';
+            overlay.appendChild(box);
+        });
+    }
+    
+    function addSmokeParticles(regions) {
+        const container = document.getElementById('smokeParticles');
+        
+        // Add particles only if smoke detected
+        if (regions.length > 0 && container.children.length < 10) {
+            for (let i = 0; i < 3; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.bottom = '0';
+                particle.style.width = (20 + Math.random() * 40) + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.animationDelay = Math.random() * 2 + 's';
+                container.appendChild(particle);
+                
+                // Remove after animation
+                setTimeout(() => particle.remove(), 3000);
+            }
+        }
+    }
+    
+    function clearSmokeParticles() {
+        document.getElementById('smokeParticles').innerHTML = '';
+    }
+    
+    function showAlert(level, aqi) {
+        const alertBox = document.getElementById('alertMessage');
+        let message = '';
+        let bgColor = '';
+        
+        if (level === 'SEVERE') {
+            message = '🚨 SEVERE POLLUTION DETECTED! Leave area immediately!';
+            bgColor = '#dc3545';
+        } else if (level === 'HIGH') {
+            message = '⚠️ HIGH POLLUTION! Avoid prolonged exposure!';
+            bgColor = '#ff7e00';
+        } else if (level === 'MODERATE') {
+            message = '😷 MODERATE POLLUTION! Wear mask if going outside.';
+            bgColor = '#ffc107';
+        } else {
+            hideAlert();
+            return;
+        }
+        
+        alertBox.innerHTML = message;
+        alertBox.className = 'alert-box';
+        alertBox.style.background = bgColor;
+        alertBox.style.color = '#fff';
+        alertBox.style.display = 'block';
+    }
+    
+    function hideAlert() {
+        document.getElementById('alertMessage').style.display = 'none';
+    }
+    
+    async function captureSnapshot() {
+        if (!stream) {
+            alert('Please start camera first!');
+            return;
+        }
+        
+        try {
+            // Capture current frame
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            // Convert to base64
+            const imageData = canvas.toDataURL('image/jpeg', 0.9);
+            
+            // Show loading
+            const captureBtn = document.getElementById('captureBtn');
+            const originalText = captureBtn.innerHTML;
+            captureBtn.innerHTML = '⏳ Saving...';
+            captureBtn.disabled = true;
+            
+            // Send to server
+            const response = await fetch("{% url 'capture_live_snapshot' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `image=${encodeURIComponent(imageData)}&location={{ user_city }}`
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('✅ Snapshot saved! AQI: ' + data.predicted_aqi + ' (+' + data.aqi_rise + ' rise)');
+                
+                // Redirect to result page
+                window.location.href = `/snap-to-aqi/result/${data.prediction_id}/`;
+            } else {
+                alert('Error: ' + data.error);
+            }
+            
+            // Restore button
+            captureBtn.innerHTML = originalText;
+            captureBtn.disabled = false;
+            
+        } catch (error) {
+            console.error('Capture error:', error);
+            alert('Error saving snapshot: ' + error.message);
+            document.getElementById('captureBtn').innerHTML = '📸 Save Snapshot';
+            document.getElementById('captureBtn').disabled = false;
+        }
+    }
+    
+    // Stop camera when leaving page
+    window.addEventListener('beforeunload', stopCamera);
+</script>
+{% endblock %}

@@ -1,321 +1,425 @@
 {% extends 'base.html' %}
 
-{% block title %}AQI Map - Pollution Platform{% endblock %}
+{% block title %}Real-Time Ground Station AQI{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
+    body { background: #f0f2f5; color: #1a1a1a; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    
     .map-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 1rem;
-        margin-top: 1.5rem;
-    }
-
-    .area-card {
-        background: #fff;
-        border: 3px solid #000;
-        padding: 1.5rem;
         position: relative;
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
+        height: calc(100vh - 60px); 
+        width: 100%;
     }
 
-    .area-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 10px 10px 0 rgba(0,0,0,0.15);
+    #map {
+        height: 100%;
+        width: 100%;
+        z-index: 1;
+        cursor: crosshair;
     }
 
-    .area-card::after {
-        content: '';
+    /* Glassmorphism Info Panel */
+    .info-panel {
         position: absolute;
-        top: -3px;
-        right: -3px;
-        width: 12px;
-        height: 12px;
-        border: 3px solid #000;
+        top: 20px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 1.5rem;
+        border-radius: 16px;
+        z-index: 1000;
+        width: 380px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255,255,255,0.4);
+        max-height: 90vh;
+        overflow-y: auto;
     }
 
-    .area-card.good::after { background: #7bed9f; }
-    .area-card.moderate::after { background: #ffd93d; }
-    .area-card.unhealthy-sensitive::after { background: #ffb347; }
-    .area-card.unhealthy::after { background: #ff6b6b; }
-    .area-card.very-unhealthy::after { background: #8b00ff; }
-    .area-card.hazardous::after { background: #4a0000; }
-
-    .area-name {
-        font-size: 1.2rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
+    .info-panel h2 {
+        margin: 0 0 5px 0;
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
-    .aqi-value {
-        font-size: 3rem;
-        font-weight: bold;
+    .station-badge {
+        font-size: 0.65rem;
+        background: #2c3e50;
+        color: #fff;
+        padding: 3px 8px;
+        border-radius: 12px;
+        text-transform: uppercase;
+        font-weight: 700;
+    }
+
+    .location-name { 
+        font-size: 1.4rem; 
+        font-weight: 700; 
+        margin-bottom: 2px; 
+        line-height: 1.1; 
+        color: #000; 
+    }
+    
+    .location-sub { 
+        font-size: 0.8rem; 
+        color: #666; 
+        margin-bottom: 15px; 
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .aqi-box {
+        background: #f8f9fa;
+        color: #333;
+        padding: 20px;
+        border-radius: 16px;
         text-align: center;
-        margin: 1rem 0;
+        margin-bottom: 20px;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+        position: relative;
     }
 
-    .pm-values {
+    .aqi-value { font-size: 4.5rem; font-weight: 800; line-height: 1; letter-spacing: -2px; }
+    .aqi-label { font-size: 1rem; font-weight: 700; text-transform: uppercase; margin-top: 5px; letter-spacing: 1px; opacity: 0.8; }
+    .last-updated { font-size: 0.7rem; opacity: 0.6; margin-top: 8px; font-variant-numeric: tabular-nums; }
+
+    /* Custom Marker */
+    .aqi-marker {
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #fff;
+        border: 2px solid #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        font-family: sans-serif;
+        font-size: 13px;
+    }
+    .aqi-marker:hover { transform: scale(1.15); z-index: 999; border-color: #000; }
+
+    .pollutant-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-        margin-top: 1rem;
+        gap: 10px;
     }
 
-    .pm-box {
-        background: #f9f9f9;
-        border: 2px solid #000;
-        padding: 0.5rem;
-        text-align: center;
-    }
-
-    .source-breakdown {
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 2px solid #e0e0e0;
-    }
-
-    .source-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.3rem 0;
-        font-size: 0.9rem;
-    }
-
-    .source-bar {
-        flex: 1;
-        height: 8px;
-        background: #e0e0e0;
-        margin: 0 0.5rem;
-        border: 1px solid #000;
-        position: relative;
-    }
-
-    .source-fill {
-        height: 100%;
-        background: #7bed9f;
-    }
-
-    .filter-panel {
-        background: #f0f0f0;
-        border: 2px solid #000;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .legend {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        justify-content: center;
-        margin-top: 1rem;
-    }
-
-    .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .legend-color {
-        width: 24px;
-        height: 24px;
-        border: 2px solid #000;
-    }
-
-    .timeline {
-        margin-top: 2rem;
-        padding: 1.5rem;
+    .pollutant-card {
         background: #fff;
-        border: 3px solid #000;
-    }
-
-    .timeline-chart {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        height: 200px;
-        margin-top: 1rem;
-        border-bottom: 2px solid #000;
-        border-left: 2px solid #000;
-        padding: 0.5rem;
-        gap: 0.3rem;
-    }
-
-    .timeline-bar {
-        flex: 1;
-        background: #7bed9f;
-        border: 2px solid #000;
-        position: relative;
-        min-width: 20px;
-        transition: all 0.3s;
-    }
-
-    .timeline-bar:hover {
-        background: #ffd93d;
-        transform: scaleY(1.05);
-    }
-
-    .timeline-label {
+        border: 1px solid #eee;
+        padding: 10px;
+        border-radius: 8px;
         text-align: center;
-        font-size: 0.75rem;
-        margin-top: 0.5rem;
     }
+
+    .p-label { font-size: 0.75rem; color: #666; font-weight: 600; text-transform: uppercase; }
+    .p-value { font-size: 1.1rem; font-weight: 800; color: #1a1a1a; margin-top: 2px; }
+    
+    .api-credit {
+        margin-top: 15px;
+        font-size: 0.7rem;
+        color: #999;
+        text-align: center;
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+    }
+
+    /* Loading */
+    .loading-overlay {
+        position: absolute; top:0; left:0; right:0; bottom:0;
+        background: rgba(255,255,255,0.9);
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    .spinner {
+        width: 40px; height: 40px;
+        border: 4px solid #eee;
+        border-top-color: #2c3e50;
+        border-radius: 50%;
+        animation: spin 0.8s infinite linear;
+        margin-bottom: 15px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="card" style="background: #000; color: #7bed9f; border-color: #7bed9f;">
-    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">🗺️ AQI HEATMAP</h1>
-    <p style="opacity: 0.8;">Real-time air quality monitoring across Delhi NCR</p>
-</div>
-
-<div class="filter-panel">
-    <form method="get" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-        <label style="font-weight: bold;">FILTER BY AREA:</label>
-        <select name="area" class="form-select" style="width: auto; min-width: 250px;" onchange="this.form.submit()">
-            <option value="">All Areas</option>
-            {% for area_item in areas %}
-            <option value="{{ area_item.area }}" {% if selected_area == area_item.area %}selected{% endif %}>
-                {{ area_item.area }}
-            </option>
-            {% endfor %}
-        </select>
-        
-        {% if selected_area %}
-        <a href="{% url 'aqi_map' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Clear Filter</a>
-        {% endif %}
-    </form>
-</div>
-
-<div class="card">
-    <div class="card-header">📊 AQI LEGEND</div>
-    <div class="legend">
-        <div class="legend-item">
-            <div class="legend-color" style="background: #7bed9f;"></div>
-            <span>Good (0-50)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #ffd93d;"></div>
-            <span>Moderate (51-100)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #ffb347;"></div>
-            <span>Unhealthy for Sensitive (101-200)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #ff6b6b;"></div>
-            <span>Unhealthy (201-300)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #8b00ff;"></div>
-            <span>Very Unhealthy (301-400)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background: #4a0000;"></div>
-            <span>Hazardous (401+)</span>
-        </div>
-    </div>
-</div>
-
-{% if aqi_data %}
 <div class="map-container">
-    {% for data in aqi_data %}
-    <div class="area-card {% if data.aqi_value <= 50 %}good{% elif data.aqi_value <= 100 %}moderate{% elif data.aqi_value <= 200 %}unhealthy-sensitive{% elif data.aqi_value <= 300 %}unhealthy{% elif data.aqi_value <= 400 %}very-unhealthy{% else %}hazardous{% endif %}">
-        <div class="area-name">{{ data.area }}</div>
-        <div class="aqi-badge {% if data.aqi_value <= 50 %}aqi-good{% elif data.aqi_value <= 100 %}aqi-moderate{% elif data.aqi_value <= 200 %}aqi-unhealthy-sensitive{% elif data.aqi_value <= 300 %}aqi-unhealthy{% elif data.aqi_value <= 400 %}aqi-very-unhealthy{% else %}aqi-hazardous{% endif %}">
-            {{ data.category }}
+    <div id="map"></div>
+
+    <div class="info-panel" id="infoPanel">
+        <h2>AIR QUALITY <span class="station-badge">REAL-TIME</span></h2>
+        
+        <div class="location-name" id="locName">Select Location</div>
+        <div class="location-sub" id="locSub">
+            <span id="stationIndicator">📍 Click map to find nearest station</span>
+        </div>
+
+        <div class="aqi-box" id="aqiBox">
+            <div class="aqi-value" id="aqiVal">--</div>
+            <div class="aqi-label" id="aqiText">NO DATA</div>
+            <div class="last-updated" id="updateTime">Updated: --</div>
+        </div>
+
+        <div style="font-size:0.8rem; font-weight:700; color:#888; margin-bottom: 10px; text-transform:uppercase;">
+            Pollutant Breakdown (IAQI)
         </div>
         
-        <div class="aqi-value">{{ data.aqi_value }}</div>
-        
-        <div class="pm-values">
-            <div class="pm-box">
-                <div style="font-size: 0.8rem; color: #666;">PM2.5</div>
-                <div style="font-weight: bold; font-size: 1.2rem;">{{ data.pm25|floatformat:1 }}</div>
+        <div class="pollutant-grid" id="pollutants">
+            <div class="pollutant-card">
+                <div class="p-label">PM 2.5</div>
+                <div class="p-value" id="val-pm25">--</div>
             </div>
-            <div class="pm-box">
-                <div style="font-size: 0.8rem; color: #666;">PM10</div>
-                <div style="font-weight: bold; font-size: 1.2rem;">{{ data.pm10|floatformat:1 }}</div>
+            <div class="pollutant-card">
+                <div class="p-label">PM 10</div>
+                <div class="p-value" id="val-pm10">--</div>
             </div>
-        </div>
-        
-        <div class="source-breakdown">
-            <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.5rem;">Pollution Sources:</div>
-            
-            <div class="source-item">
-                <span>🚗 Traffic</span>
-                <div class="source-bar">
-                    <div class="source-fill" style="width: {{ data.traffic_contribution }}%;"></div>
-                </div>
-                <span style="font-weight: bold;">{{ data.traffic_contribution|floatformat:1 }}%</span>
+            <div class="pollutant-card">
+                <div class="p-label">NO₂</div>
+                <div class="p-value" id="val-no2">--</div>
             </div>
-            
-            <div class="source-item">
-                <span>🏭 Industry</span>
-                <div class="source-bar">
-                    <div class="source-fill" style="width: {{ data.industrial_contribution }}%; background: #ffb347;"></div>
-                </div>
-                <span style="font-weight: bold;">{{ data.industrial_contribution|floatformat:1 }}%</span>
+            <div class="pollutant-card">
+                <div class="p-label">Ozone (O₃)</div>
+                <div class="p-value" id="val-o3">--</div>
             </div>
-            
-            <div class="source-item">
-                <span>🔥 Crop</span>
-                <div class="source-bar">
-                    <div class="source-fill" style="width: {{ data.crop_burning_contribution }}%; background: #ff6b6b;"></div>
-                </div>
-                <span style="font-weight: bold;">{{ data.crop_burning_contribution|floatformat:1 }}%</span>
+            <div class="pollutant-card">
+                <div class="p-label">SO₂</div>
+                <div class="p-value" id="val-so2">--</div>
             </div>
-            
-            <div class="source-item">
-                <span>🏗️ Construction</span>
-                <div class="source-bar">
-                    <div class="source-fill" style="width: {{ data.construction_contribution }}%; background: #ffd93d;"></div>
-                </div>
-                <span style="font-weight: bold;">{{ data.construction_contribution|floatformat:1 }}%</span>
+            <div class="pollutant-card">
+                <div class="p-label">CO</div>
+                <div class="p-value" id="val-co">--</div>
             </div>
         </div>
-        
-        <div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #e0e0e0; font-size: 0.85rem; color: #666;">
-            {{ data.timestamp|date:"d M Y, h:i A" }}
+
+        <div class="api-credit">
+            Data provided by <a href="https://aqicn.org/" target="_blank">World Air Quality Index Project</a>
         </div>
     </div>
-    {% endfor %}
+    
+    <div class="loading-overlay" id="loader">
+        <div class="spinner"></div>
+        <div style="font-weight:600; font-size:0.9rem;">CONNECTING TO GROUND STATIONS...</div>
+    </div>
 </div>
 
-{% if selected_area %}
-<div class="timeline">
-    <div class="card-header">📈 24-Hour AQI Trend - {{ selected_area }}</div>
-    <div class="timeline-chart">
-        {% for data in aqi_data|slice:":24" %}
-        <div class="timeline-bar" style="height: {% widthratio data.aqi_value 400 100 %}%;" 
-             title="AQI: {{ data.aqi_value }} at {{ data.timestamp|date:'h:i A' }}">
-        </div>
-        {% endfor %}
-    </div>
-    <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
-        <span style="font-size: 0.75rem; color: #666;">24h ago</span>
-        <span style="font-size: 0.75rem; color: #666;">Now</span>
-    </div>
-</div>
-{% endif %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
-{% else %}
-<div class="card">
-    <p style="text-align: center; padding: 3rem; color: #666;">
-        No AQI data available. Please check back later.
-    </p>
-</div>
-{% endif %}
+<script>
+    // ==========================================
+    // 🔑 API TOKEN CONFIGURATION
+    // ==========================================
+    // If you have a token, replace 'demo' below. 
+    // 'demo' only works reliably for Shanghai/Beijing.
+    // Get free token: https://aqicn.org/data-platform/token/
+    let WAQI_TOKEN = '970a0246132c9ee505e98a7e1088c4d4867dbac2'; 
+    
+    // Check if user has saved a token previously
+    if(localStorage.getItem('waqi_token')) {
+        WAQI_TOKEN = localStorage.getItem('waqi_token');
+    }
 
-<div class="card" style="margin-top: 2rem; background: #fffbea; border-color: #ffd93d;">
-    <div class="card-header">💡 UNDERSTANDING THE DATA</div>
-    <div style="padding: 0.5rem 0;">
-        <p style="margin-bottom: 0.5rem;"><strong>AQI (Air Quality Index):</strong> A standardized indicator of air quality. Higher values indicate greater health concern.</p>
-        <p style="margin-bottom: 0.5rem;"><strong>PM2.5:</strong> Fine particulate matter ≤2.5 micrometers. Can penetrate deep into lungs.</p>
-        <p style="margin-bottom: 0.5rem;"><strong>PM10:</strong> Particulate matter ≤10 micrometers. Can irritate airways.</p>
-        <p style="margin-bottom: 0;"><strong>Source Breakdown:</strong> Estimated contribution percentage from different pollution sources using AI analysis.</p>
-    </div>
-</div>
+    // ==========================================
+    // MAP SETUP
+    // ==========================================
+    const markersLayer = L.layerGroup();
+    const heatLayer = L.layerGroup();
+    
+    const map = L.map('map', {
+        zoomControl: true,
+        doubleClickZoom: false,
+        layers: [L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }), heatLayer, markersLayer]
+    }).setView([20.5937, 78.9629], 5);
+
+    const overlays = { "Heatmap": heatLayer, "Station Pins": markersLayer };
+    L.control.layers(null, overlays).addTo(map);
+
+    const heatPoints = []; 
+    
+    // Cities to load on startup
+    const initialCities = {
+        'Delhi': [28.6139, 77.2090],
+        'Mumbai': [19.0760, 72.8777],
+        'Bangalore': [12.9716, 77.5946],
+        'Kolkata': [22.5726, 88.3639],
+        'Hyderabad': [17.3850, 78.4867],
+        'Chennai': [13.0827, 80.2707]
+    };
+
+    // ==========================================
+    // WAQI / AQICN LOGIC
+    // ==========================================
+
+    function getAQIColor(aqi) {
+        if (aqi <= 50) return '#009966'; // Good
+        if (aqi <= 100) return '#ffde33'; // Moderate
+        if (aqi <= 150) return '#ff9933'; // Unhealthy for Sensitive
+        if (aqi <= 200) return '#cc0033'; // Unhealthy
+        if (aqi <= 300) return '#660099'; // Very Unhealthy
+        return '#7e0023'; // Hazardous
+    }
+
+    function getAQIText(aqi) {
+        if (aqi <= 50) return 'Good';
+        if (aqi <= 100) return 'Moderate';
+        if (aqi <= 150) return 'Sensitive';
+        if (aqi <= 200) return 'Unhealthy';
+        if (aqi <= 300) return 'Very Unhealthy';
+        return 'Hazardous';
+    }
+
+    async function fetchStationData(lat, lng) {
+        // 1. Check Token
+        if (WAQI_TOKEN === 'demo') {
+            const userKey = prompt("⚠️ REAL DATA REQUIRED\n\nThe 'demo' key only works for Shanghai.\n\nPlease enter your FREE API Key from aqicn.org:\n(We will save it for this session)");
+            if (userKey) {
+                WAQI_TOKEN = userKey;
+                localStorage.setItem('waqi_token', userKey);
+            } else {
+                alert("Proceeding with 'demo' key. Data will be inaccurate (Shanghai values).");
+            }
+        }
+
+        try {
+            // 2. Fetch from WAQI Geo-Feed
+            // API allows geo-based query to find nearest station
+            const url = `https://api.waqi.info/feed/geo:${lat};${lng}/?token=${WAQI_TOKEN}`;
+            const res = await fetch(url);
+            const json = await res.json();
+
+            if (json.status === 'ok') {
+                return json.data;
+            } else {
+                console.error("WAQI API Error:", json.data);
+                return null;
+            }
+        } catch (e) {
+            console.error("Network Error:", e);
+            return null;
+        }
+    }
+
+    function updateHeatmap() {
+        heatLayer.clearLayers();
+        L.heatLayer(heatPoints, {
+            radius: 40,
+            blur: 25,
+            maxZoom: 9,
+            max: 1.0,
+            gradient: {
+                0.0: '#009966', 0.4: '#ffde33', 
+                0.6: '#cc0033', 0.8: '#660099', 1.0: '#7e0023'
+            }
+        }).addTo(heatLayer);
+    }
+
+    async function addPoint(lat, lng) {
+        const data = await fetchStationData(lat, lng);
+        
+        if (data) {
+            const aqi = parseInt(data.aqi); // The main AQI
+            if (isNaN(aqi)) return; // Skip if no data
+            
+            const color = getAQIColor(aqi);
+            const textColor = (aqi > 150) ? '#fff' : '#000';
+            
+            // Station Name (e.g. "US Diplomatic Post: New Delhi")
+            const stationName = data.city.name; 
+            const stationTime = data.time.s;
+            
+            // Raw Pollutants (iaqi)
+            // Not all stations have all sensors, so we default to '-'
+            const iaqi = data.iaqi || {};
+            const pm25 = iaqi.pm25 ? iaqi.pm25.v : '-';
+            const pm10 = iaqi.pm10 ? iaqi.pm10.v : '-';
+            const no2  = iaqi.no2  ? iaqi.no2.v  : '-';
+            const so2  = iaqi.so2  ? iaqi.so2.v  : '-';
+            const o3   = iaqi.o3   ? iaqi.o3.v   : '-';
+            const co   = iaqi.co   ? iaqi.co.v   : '-';
+
+            // Create Marker
+            const icon = L.divIcon({
+                className: 'custom-icon',
+                html: `<div class="aqi-marker" style="background:${color}; color:${textColor}; width:45px; height:45px;">${aqi}</div>`,
+                iconSize: [45, 45]
+            });
+            
+            const marker = L.marker([lat, lng], {icon: icon}).addTo(markersLayer);
+            
+            // Click Handler
+            marker.on('click', () => {
+                // Update Sidebar
+                document.getElementById('locName').innerText = stationName;
+                document.getElementById('stationIndicator').innerHTML = `📍 Distance: Near [${lat.toFixed(2)}, ${lng.toFixed(2)}]`;
+                
+                const aqiValEl = document.getElementById('aqiVal');
+                aqiValEl.innerText = aqi;
+                aqiValEl.style.color = color;
+                
+                document.getElementById('aqiText').innerText = getAQIText(aqi);
+                document.getElementById('updateTime').innerText = `Updated: ${stationTime}`;
+                
+                // Style Box
+                const box = document.getElementById('aqiBox');
+                box.style.borderColor = color;
+                
+                // Update Cards
+                document.getElementById('val-pm25').innerText = pm25;
+                document.getElementById('val-pm10').innerText = pm10;
+                document.getElementById('val-no2').innerText = no2;
+                document.getElementById('val-so2').innerText = so2;
+                document.getElementById('val-o3').innerText = o3;
+                document.getElementById('val-co').innerText = co;
+            });
+
+            // Add to Heatmap (Normalize 0-300)
+            let intensity = aqi / 300; 
+            if(intensity > 1) intensity = 1;
+            if(intensity < 0.2) intensity = 0.2;
+            
+            heatPoints.push([lat, lng, intensity]);
+            updateHeatmap();
+        }
+    }
+
+    // ==========================================
+    // INTERACTION
+    // ==========================================
+    map.on('dblclick', async (e) => {
+        const popup = L.popup()
+            .setLatLng(e.latlng)
+            .setContent("📡 Finding nearest station...")
+            .openOn(map);
+            
+        await addPoint(e.latlng.lat, e.latlng.lng);
+        map.closePopup();
+    });
+
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+    (async function init() {
+        // Sequentially load initial cities to avoid rate limit issues
+        for (const [city, coords] of Object.entries(initialCities)) {
+            await addPoint(coords[0], coords[1]);
+        }
+        document.getElementById('loader').style.display = 'none';
+    })();
+
+</script>
 {% endblock %}

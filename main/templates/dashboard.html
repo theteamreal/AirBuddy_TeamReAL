@@ -18,7 +18,19 @@
 </div>
 {% endif %}
 
-{# jemit #}
+<!-- AQI Trend Chart -->
+<div class="card">
+    <div class="card-header">📈 AQI Trend - Next 24 Hours</div>
+    <div style="padding: 1rem;">
+        <canvas id="aqiChart" style="max-height: 400px;"></canvas>
+    </div>
+    <div style="padding: 0 1rem 1rem; text-align: center; font-size: 0.85rem; color: #666;">
+        📍 Location: <span id="chartCity">{{ health_profile.location|default:"Delhi" }}</span> | 
+        🤖 ML-Powered Predictions
+    </div>
+</div>
+
+<!-- Live AQI Data -->
 <div class="card">
     <div class="card-header">🌐 Live AQI Data</div>
     <div style="text-align: center; padding: 1rem 0;">
@@ -61,7 +73,7 @@
                 {{ location_aqi.category }}
             </div>
             <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
-                {{ location_aqi.area }} • {{ location_aqi.timestamp|date:"d M Y, h:i A" }}
+                {{ health_profile.location}} • {{ location_aqi.timestamp|date:"d M Y, h:i A" }}
             </p>
         </div>
         {% else %}
@@ -133,63 +145,14 @@
 </div>
 {% endif %}
 
-<!-- Recent Forecasts -->
 <div class="card">
-    <div class="card-header">📊 AQI Forecasts (Next 72 Hours)</div>
-    {% if forecasts %}
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
-                    <th style="padding: 0.8rem; text-align: left;">Date & Time</th>
-                    <th style="padding: 0.8rem; text-align: center;">Area</th>
-                    <th style="padding: 0.8rem; text-align: center;">Predicted AQI</th>
-                    <th style="padding: 0.8rem; text-align: center;">Confidence</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for forecast in forecasts %}
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 0.8rem;">{{ forecast.forecast_date|date:"d M Y, h:i A" }}</td>
-                    <td style="padding: 0.8rem; text-align: center;">{{ forecast.area }}</td>
-                    <td style="padding: 0.8rem; text-align: center;"><strong>{{ forecast.predicted_aqi }}</strong></td>
-                    <td style="padding: 0.8rem; text-align: center;">{{ forecast.confidence|floatformat:2 }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <p style="text-align: center; padding: 2rem; color: #666;">No forecasts available at the moment.</p>
-    {% endif %}
-</div>
-
-<!-- Trending Policies -->
-<div class="card">
-    <div class="card-header">⚖️ Trending Policy Proposals</div>
-    {% if trending_policies %}
-    <div style="padding: 0.5rem 0;">
-        {% for policy in trending_policies %}
-        <div style="padding: 1rem; margin-bottom: 0.5rem; border: 2px solid #e0e0e0; background: #f9f9f9;">
-            <h4 style="margin-bottom: 0.5rem;">{{ policy.title }}</h4>
-            <p style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{{ policy.description|truncatewords:20 }}</p>
-            <div style="display: flex; justify-space-between; align-items: center;">
-                <span class="aqi-badge">{{ policy.get_policy_type_display }}</span>
-                <div style="font-size: 0.85rem;">
-                    <span style="color: #7bed9f; font-weight: bold;">{{ policy.agree_count }} ✓</span> / 
-                    <span style="color: #ff6b6b; font-weight: bold;">{{ policy.disagree_count }} ✗</span>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-        <div style="text-align: center; margin-top: 1rem;">
-            <a href="{% url 'policies' %}" class="btn btn-secondary">View All Policies →</a>
+    <div class="card-header">🏥 Personalized Health Alerts & Recommendations</div>
+    <div id="healthAlertsContainer" style="padding: 0.5rem 0;">
+        <div style="text-align: center; padding: 2rem; color: #666;">
+            Loading health alerts...
         </div>
     </div>
-    {% else %}
-    <p style="text-align: center; padding: 2rem; color: #666;">No policies proposed yet.</p>
-    {% endif %}
-</div>
+</div>  
 
 <!-- Quick Actions -->
 <div class="grid">
@@ -209,6 +172,7 @@
     </a>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <script>
 function getAQICategory(aqi) {
     if (aqi <= 50) return { class: 'aqi-good', text: 'Good' };
@@ -217,6 +181,15 @@ function getAQICategory(aqi) {
     if (aqi <= 300) return { class: 'aqi-unhealthy', text: 'Unhealthy' };
     if (aqi <= 400) return { class: 'aqi-very-unhealthy', text: 'Very Unhealthy' };
     return { class: 'aqi-hazardous', text: 'Hazardous' };
+}
+
+function getAQIColor(aqi) {
+    if (aqi <= 50) return '#7bed9f';
+    if (aqi <= 100) return '#8bc34a';
+    if (aqi <= 200) return '#ffd93d';
+    if (aqi <= 300) return '#ff9800';
+    if (aqi <= 400) return '#f44336';
+    return '#9c27b0';
 }
 
 function loadLiveAQI() {
@@ -244,8 +217,528 @@ function loadLiveAQI() {
         });
 }
 
+// Load AQI Chart
+let aqiChart = null;
+
+function loadAQIChart() {
+    const city = "{{ health_profile.location|default:'Delhi' }}";
+    document.getElementById('chartCity').innerText = city;
+    
+    fetch(`/api/forecast/?city=${encodeURIComponent(city)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.forecasts && data.forecasts.length > 0) {
+                const forecasts = data.forecasts;
+                
+                // Extract data for chart
+                const labels = forecasts.map(f => {
+                    const date = new Date(f.time);
+                    return date.toLocaleString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    });
+                });
+                
+                const aqiValues = forecasts.map(f => f.aqi);
+                const tempValues = forecasts.map(f => f.temp);
+                const humidityValues = forecasts.map(f => f.humidity);
+                
+                // Create gradient
+                const ctx = document.getElementById('aqiChart').getContext('2d');
+                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(123, 237, 159, 0.4)');
+                gradient.addColorStop(0.5, 'rgba(255, 217, 61, 0.4)');
+                gradient.addColorStop(1, 'rgba(244, 67, 54, 0.4)');
+                
+                // Point colors based on AQI
+                const pointColors = aqiValues.map(aqi => getAQIColor(aqi));
+                
+                // Destroy existing chart if any
+                if (aqiChart) {
+                    aqiChart.destroy();
+                }
+                
+                // Create new chart
+                aqiChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'AQI',
+                                data: aqiValues,
+                                borderColor: '#000',
+                                backgroundColor: gradient,
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4,
+                                pointBackgroundColor: pointColors,
+                                pointBorderColor: '#000',
+                                pointBorderWidth: 2,
+                                pointRadius: 5,
+                                pointHoverRadius: 7,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Temperature (°C)',
+                                data: tempValues,
+                                borderColor: '#ff6b6b',
+                                backgroundColor: 'transparent',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                tension: 0.4,
+                                pointBackgroundColor: '#ff6b6b',
+                                pointBorderColor: '#000',
+                                pointBorderWidth: 1,
+                                pointRadius: 3,
+                                pointHoverRadius: 5,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    font: {
+                                        family: "'Courier New', monospace",
+                                        size: 12,
+                                        weight: 'bold'
+                                    },
+                                    color: '#000',
+                                    padding: 15,
+                                    usePointStyle: true
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#000',
+                                titleColor: '#7bed9f',
+                                bodyColor: '#fff',
+                                borderColor: '#7bed9f',
+                                borderWidth: 2,
+                                padding: 12,
+                                titleFont: {
+                                    family: "'Courier New', monospace",
+                                    size: 13,
+                                    weight: 'bold'
+                                },
+                                bodyFont: {
+                                    family: "'Courier New', monospace",
+                                    size: 12
+                                },
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.dataset.label || '';
+                                        const value = context.parsed.y;
+                                        
+                                        if (label === 'AQI') {
+                                            const category = getAQICategory(value).text;
+                                            return `${label}: ${value.toFixed(1)} (${category})`;
+                                        }
+                                        return `${label}: ${value.toFixed(1)}`;
+                                    },
+                                    footer: function(tooltipItems) {
+                                        const index = tooltipItems[0].dataIndex;
+                                        const humidity = humidityValues[index];
+                                        return `Humidity: ${humidity}%`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    color: '#e0e0e0',
+                                    borderColor: '#000',
+                                    borderWidth: 2
+                                },
+                                ticks: {
+                                    font: {
+                                        family: "'Courier New', monospace",
+                                        size: 10
+                                    },
+                                    color: '#666',
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'AQI',
+                                    font: {
+                                        family: "'Courier New', monospace",
+                                        size: 13,
+                                        weight: 'bold'
+                                    },
+                                    color: '#000'
+                                },
+                                grid: {
+                                    color: '#e0e0e0',
+                                    borderColor: '#000',
+                                    borderWidth: 2
+                                },
+                                ticks: {
+                                    font: {
+                                        family: "'Courier New', monospace",
+                                        size: 11,
+                                        weight: 'bold'
+                                    },
+                                    color: '#000'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Temperature (°C)',
+                                    font: {
+                                        family: "'Courier New', monospace",
+                                        size: 13,
+                                        weight: 'bold'
+                                    },
+                                    color: '#ff6b6b'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                ticks: {
+                                    font: {
+                                        family: "'Courier New', monospace",
+                                        size: 11
+                                    },
+                                    color: '#ff6b6b'
+                                }
+                            }
+                        }
+                    }
+                });
+            } else {
+                console.error('No forecast data available');
+                document.getElementById('aqiChart').parentElement.innerHTML = 
+                    '<p style="text-align: center; padding: 2rem; color: #666;">Unable to load AQI forecast chart. Please try again later.</p>';
+            }
+        })
+        .catch(err => {
+            console.error("Error loading AQI chart:", err);
+            document.getElementById('aqiChart').parentElement.innerHTML = 
+                '<p style="text-align: center; padding: 2rem; color: #666;">Error loading chart data.</p>';
+        });
+}
+
+// Load data on page load
 loadLiveAQI();
+loadAQIChart();
+
+// Refresh live AQI every 5 minutes
 setInterval(loadLiveAQI, 300000);
+
+// Refresh chart every 30 minutes
+setInterval(loadAQIChart, 1800000);
+</script>
+
+<script>
+// ============================================
+// HEALTH ALERTS - AI POWERED
+// ============================================
+
+async function generateHealthAlerts() {
+    console.log('🔵 Starting generateHealthAlerts...');
+    const city = "{{ health_profile.location|default:'Delhi' }}";
+    const container = document.getElementById('healthAlertsContainer');
+    
+    // Show loading state
+    container.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 10px 20px; border-radius: 20px; margin-bottom: 15px; animation: pulse 2s infinite;">
+                🤖 AI-POWERED RECOMMENDATIONS
+            </div>
+            <p style="color: #666; font-size: 0.9rem;">Analyzing your health profile and air quality data...</p>
+            <div style="margin-top: 15px; font-size: 2rem; animation: bounce 1s infinite;">🧠</div>
+        </div>
+        <style>
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+            }
+            @keyframes bounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-10px); }
+            }
+        </style>
+    `;
+    
+    try {
+        // Fetch forecast data
+        console.log('🔵 Fetching forecast data for:', city);
+        const forecastResponse = await fetch(`/api/forecast/?city=${encodeURIComponent(city)}`);
+        const forecastData = await forecastResponse.json();
+        
+        if (forecastData.status !== 'success' || !forecastData.forecasts || forecastData.forecasts.length === 0) {
+            throw new Error('No forecast data available');
+        }
+        
+        const forecasts = forecastData.forecasts;
+        console.log('🔵 Got forecasts:', forecasts.length, 'entries');
+        
+        // Calculate AQI statistics
+        const currentAQI = forecasts[0].aqi;
+        const peakAQI = Math.max(...forecasts.map(f => f.aqi));
+        const minAQI = Math.min(...forecasts.map(f => f.aqi));
+        const avgAQI = forecasts.reduce((sum, f) => sum + f.aqi, 0) / forecasts.length;
+        
+        const peakTime = forecasts.find(f => f.aqi === peakAQI);
+        const bestTime = forecasts.find(f => f.aqi === minAQI);
+        
+        // Check for sudden spikes
+        let hasSuddenSpike = false;
+        let maxSpike = 0;
+        for (let i = 1; i < Math.min(forecasts.length, 8); i++) {
+            const spike = forecasts[i].aqi - forecasts[i-1].aqi;
+            if (spike > 30) {
+                hasSuddenSpike = true;
+                maxSpike = Math.max(maxSpike, spike);
+            }
+        }
+        
+        // Format times
+        const peakTimeStr = new Date(peakTime.time).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        const bestTimeStr = new Date(bestTime.time).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        // Get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        const payload = {
+            city: city,
+            currentAQI: currentAQI,
+            peakAQI: peakAQI,
+            minAQI: minAQI,
+            avgAQI: avgAQI,
+            peakTime: peakTimeStr,
+            bestTime: bestTimeStr,
+            hasSuddenSpike: hasSuddenSpike,
+            maxSpike: maxSpike
+        };
+        
+        console.log('🔵 Sending to AI:', payload);
+        
+        // Call backend AI endpoint
+        const aiResponse = await fetch('/api/ai-health-alerts/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        console.log('🔵 AI Response status:', aiResponse.status);
+        
+        if (!aiResponse.ok) {
+            const errorText = await aiResponse.text();
+            console.error('🔴 AI Error:', errorText);
+            throw new Error(`API request failed: ${aiResponse.status}`);
+        }
+        
+        const aiData = await aiResponse.json();
+        console.log('🟢 AI Response:', aiData);
+        
+        if (!aiData.success || !aiData.alerts || !Array.isArray(aiData.alerts)) {
+            throw new Error(aiData.error || 'Invalid response from AI');
+        }
+        
+        // Display the AI-generated alerts
+        displayHealthAlerts(aiData.alerts, true);
+        
+    } catch (error) {
+        console.error("🔴 Error:", error);
+        generateFallbackAlerts(container, error.message);
+    }
+}
+
+function generateFallbackAlerts(container, errorMsg) {
+    console.log('⚠️ Using fallback alerts');
+    const city = "{{ health_profile.location|default:'Delhi' }}";
+    
+    fetch(`/api/forecast/?city=${encodeURIComponent(city)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.forecasts && data.forecasts.length > 0) {
+                const currentAQI = data.forecasts[0].aqi;
+                const alerts = [];
+                
+                if (currentAQI > 200) {
+                    alerts.push({
+                        level: 'danger',
+                        icon: '🚨',
+                        title: 'Very Unhealthy Air Quality',
+                        message: 'Current AQI is ' + currentAQI.toFixed(0) + '. Air quality is very unhealthy. Everyone should avoid outdoor activities.',
+                        actions: ['Stay indoors', 'Use air purifier', 'Wear N95 mask if must go out', 'Keep windows closed']
+                    });
+                } else if (currentAQI > 150) {
+                    alerts.push({
+                        level: 'warning',
+                        icon: '⚠️',
+                        title: 'Unhealthy Air Quality',
+                        message: 'Current AQI is ' + currentAQI.toFixed(0) + '. Sensitive groups should limit outdoor exposure.',
+                        actions: ['Reduce outdoor activities', 'Wear mask when outside', 'Monitor health symptoms']
+                    });
+                } else if (currentAQI > 100) {
+                    alerts.push({
+                        level: 'info',
+                        icon: 'ℹ️',
+                        title: 'Moderate Air Quality',
+                        message: 'Current AQI is ' + currentAQI.toFixed(0) + '. Air quality is acceptable for most but sensitive groups may experience minor issues.',
+                        actions: ['Sensitive groups should reduce prolonged outdoor exertion', 'Monitor symptoms']
+                    });
+                } else {
+                    alerts.push({
+                        level: 'success',
+                        icon: '✅',
+                        title: 'Good Air Quality',
+                        message: 'Current AQI is ' + currentAQI.toFixed(0) + '. Air quality is good! Great time for outdoor activities.',
+                        actions: ['Enjoy outdoor exercise', 'Open windows for ventilation']
+                    });
+                }
+                
+                displayHealthAlerts(alerts, false);
+            } else {
+                showErrorState(container, errorMsg);
+            }
+        })
+        .catch(err => {
+            showErrorState(container, err.message);
+        });
+}
+
+function showErrorState(container, errorMsg) {
+    container.innerHTML = `
+        <div style="background: #fff3cd; border: 2px solid #ffd93d; border-left: 8px solid #ffd93d; padding: 1rem; margin-bottom: 1rem; border-radius: 8px;">
+            <div style="display: flex; align-items: start; gap: 0.8rem;">
+                <span style="font-size: 1.5rem;">⚠️</span>
+                <div style="flex: 1;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: #856404; font-size: 1rem;">Health Alerts Temporarily Unavailable</h4>
+                    <p style="margin: 0; color: #856404; font-size: 0.9rem;">We're having trouble loading health recommendations. Please check back in a few moments.</p>
+                    <p style="margin: 0.5rem 0 0 0; color: #856404; font-size: 0.8rem; opacity: 0.8;">Error: ${errorMsg}</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function displayHealthAlerts(alerts, isAIPowered = false) {
+    const container = document.getElementById('healthAlertsContainer');
+    
+    if (!alerts || alerts.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No specific health alerts at this time. Stay safe!</p>';
+        return;
+    }
+    
+    const severityOrder = { danger: 0, warning: 1, info: 2, success: 3 };
+    alerts.sort((a, b) => severityOrder[a.level] - severityOrder[b.level]);
+    
+    let html = '';
+    
+    if (isAIPowered) {
+        html += `
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.4);">
+                    🤖 AI-POWERED PERSONALIZED RECOMMENDATIONS
+                </div>
+                <p style="margin-top: 8px; font-size: 0.8rem; color: #666;">
+                    Generated using Groq LLaMA 3.3 based on your health profile
+                </p>
+            </div>
+        `;
+    }
+    
+    alerts.forEach(alert => {
+        const levelColors = {
+            danger: { bg: '#ffe6e6', border: '#ff6b6b', text: '#721c24' },
+            warning: { bg: '#fff3cd', border: '#ffd93d', text: '#856404' },
+            info: { bg: '#e7f3ff', border: '#3498db', text: '#004085' },
+            success: { bg: '#d4edda', border: '#7bed9f', text: '#155724' }
+        };
+        
+        const colors = levelColors[alert.level] || levelColors.info;
+        
+        html += `
+            <div style="background: ${colors.bg}; border: 2px solid ${colors.border}; border-left: 8px solid ${colors.border}; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div style="display: flex; align-items: start; gap: 0.8rem;">
+                    <span style="font-size: 1.5rem;">${alert.icon || '📋'}</span>
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 0.5rem 0; color: ${colors.text}; font-size: 1rem; font-weight: bold;">${alert.title}</h4>
+                        <p style="margin: 0 0 0.8rem 0; color: ${colors.text}; font-size: 0.9rem; line-height: 1.5;">${alert.message}</p>
+                        ${alert.actions && alert.actions.length > 0 ? `
+                            <div style="background: rgba(0,0,0,0.05); padding: 0.8rem; border-radius: 6px; margin-top: 0.8rem;">
+                                <strong style="font-size: 0.85rem; color: ${colors.text}; display: block; margin-bottom: 0.5rem;">✓ Recommended Actions:</strong>
+                                <ul style="margin: 0; padding: 0 0 0 1.2rem;">
+                                    ${alert.actions.map(action => `<li style="font-size: 0.85rem; color: ${colors.text}; margin: 0.3rem 0; line-height: 1.4;">${action}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+        <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 2px solid #e0e0e0;">
+            <p style="font-size: 0.85rem; color: #666;">
+                💡 <strong>Tip:</strong> Check the AQI forecast chart above to plan your day effectively.
+            </p>
+            ${isAIPowered ? `
+                <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem;">
+                    AI recommendations refresh every 30 minutes with latest air quality data
+                </p>
+            ` : ''}
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+// Load health alerts after page loads
+console.log('🔵 Scheduling health alerts to load in 1.5 seconds...');
+setTimeout(generateHealthAlerts, 1500);
+
+// Refresh every 30 minutes
+setInterval(generateHealthAlerts, 1800000);
 </script>
 
 {% endblock %}

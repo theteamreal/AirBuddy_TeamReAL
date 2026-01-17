@@ -1,6 +1,7 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
+from .views import snap_to_aqi_enhanced, snap_result_enhanced #darsh
 
 urlpatterns = [
     # Home and Auth
@@ -42,4 +43,24 @@ urlpatterns = [
     path('api/aqi/', views.get_city_aqi_api, name='api_city_aqi'),
     path('api/forecast/', views.get_city_forecast_api, name='api_city_forecast'),
     path('policy-simulation/', views.policy_simulation, name='policy_simulation'),
+     path('api/ai-health-alerts/', views.generate_ai_health_alerts, name='generate_ai_health_alerts'),
+    path('api/test-ai-health-alerts/', views.test_ai_health_alerts, name='test_ai_health_alerts'),
+     # AQI Features
+    path('aqi-map/', views.aqi_map, name='aqi_map'),
+    path('heatmap/', views.aqi_heatmap, name='aqi_heatmap'),
+    # Snap-to-AQI Feature -darsh 
+    path('snap-to-aqi/', views.snap_to_aqi, name='snap_to_aqi'),
+    path('snap-to-aqi/result/<int:prediction_id>/', views.snap_result, name='snap_result'),
+    path('snap-to-aqi/history/', views.snap_history, name='snap_history'),
+
+     # Live Camera URLs (NEW - ADD THESE)
+    path('live-camera/', views.live_camera, name='live_camera'),
+    path('api/analyze-frame/', views.analyze_camera_frame, name='analyze_camera_frame'),
+    path('api/capture-snapshot/', views.capture_live_snapshot, name='capture_live_snapshot'),
+
+    # Enhanced YOLO detection URLs
+    path('snap-enhanced/', snap_to_aqi_enhanced, name='snap_to_aqi_enhanced'),
+    path('snap-result-enhanced/<int:prediction_id>/', snap_result_enhanced, name='snap_result_enhanced'),
+    #path('api/detect-vehicles/', detect_vehicles_api, name='detect_vehicles_api'),
+    
 ]

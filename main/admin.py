@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserHealthProfile, Policy, PolicyVote
+from .models import ImageAQIPrediction, UserHealthProfile, Policy, PolicyVote
 
 @admin.register(UserHealthProfile)
 class UserHealthProfileAdmin(admin.ModelAdmin):
@@ -67,3 +67,11 @@ class PolicyVoteAdmin(admin.ModelAdmin):
 admin.site.site_header = "Pollution Platform Administration"
 admin.site.site_title = "Pollution Platform Admin"
 admin.site.index_title = "Welcome to Pollution Platform Administration"
+
+#darsh
+
+@admin.register(ImageAQIPrediction)
+class ImageAQIPredictionAdmin(admin.ModelAdmin):
+    list_display = ['user', 'predicted_aqi', 'pollution_source', 'created_at']
+    list_filter = ['pollution_source', 'health_alert_level']
+    search_fields = ['user__username', 'location']

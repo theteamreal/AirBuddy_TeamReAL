@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Snap History - All Your Scans{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    
+    .stat-value {
+        font-size: 3rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    .prediction-card {
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+    
+    .prediction-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    
+    .prediction-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+    
+    .prediction-body {
+        padding: 1.5rem;
+    }
+    
+    .aqi-badge {
+        display: inline-block;
+        padding: 0.5rem 1.5rem;
+        border-radius: 25px;
+        font-weight: bold;
+        font-size: 1.2rem;
+        color: white;
+    }
+    
+    .source-tag {
+        display: inline-block;
+        padding: 0.3rem 1rem;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        background: #f8f9fa;
+        color: #495057;
+        margin-right: 0.5rem;
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+    }
+    
+    .filter-tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .filter-tab {
+        padding: 0.8rem 1.5rem;
+        border-radius: 25px;
+        border: 2px solid #667eea;
+        background: white;
+        color: #667eea;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-tab:hover, .filter-tab.active {
+        background: #667eea;
+        color: white;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    
+    .empty-state-icon {
+        font-size: 5rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1>📸 Your Snap History</h1>
+            <p class="text-muted">All your pollution detection scans</p>
+        </div>
+        <div>
+            <a href="{% url 'snap_to_aqi' %}" class="btn btn-primary">
+                <i class="fas fa-camera"></i> New Scan
+            </a>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    {% if total_predictions > 0 %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stat-value">{{ total_predictions }}</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stat-value">{{ avg_aqi }}</div>
+                <div class="stat-label">Average AQI</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stat-value" style="color: #dc3545;">{{ highest_aqi }}</div>
+                <div class="stat-label">Highest AQI</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="stat-value">{{ source_stats|length }}</div>
+                <div class="stat-label">Source Types</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Source Distribution -->
+    <div class="chart-container">
+        <h4 class="mb-4">🎯 Pollution Sources Detected</h4>
+        <div class="row">
+            {% for stat in source_stats %}
+            <div class="col-md-4 mb-3">
+                <div class="d-flex align-items-center">
+                    <div style="flex: 1;">
+                        <strong>{{ stat.pollution_source }}</strong>
+                        <div class="progress mt-2" style="height: 25px;">
+                            <div class="progress-bar bg-primary" 
+                                 style="width: {{ stat.count|floatformat:0 }}%;">
+                                {{ stat.count }} scan{{ stat.count|pluralize }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <button class="filter-tab active" onclick="filterPredictions('all')">
+            All Scans
+        </button>
+        <button class="filter-tab" onclick="filterPredictions('severe')">
+            Severe (>300)
+        </button>
+        <button class="filter-tab" onclick="filterPredictions('high')">
+            High (200-300)
+        </button>
+        <button class="filter-tab" onclick="filterPredictions('moderate')">
+            Moderate (100-200)
+        </button>
+    </div>
+    
+    <!-- Predictions Grid -->
+    <div class="row" id="predictionsGrid">
+        {% for prediction in predictions %}
+        <div class="col-md-4 prediction-item" data-aqi="{{ prediction.predicted_aqi }}">
+            <div class="prediction-card">
+                <img src="{{ prediction.image.url }}" class="prediction-image" alt="Scan">
+                <div class="prediction-body">
+                    <div class="mb-3">
+                        <span class="aqi-badge" style="background: {{ prediction.color_code }};">
+                            AQI {{ prediction.predicted_aqi }}
+                        </span>
+                    </div>
+                    
+                    <h5>{{ prediction.category }}</h5>
+                    
+                    <div class="mb-2">
+                        <span class="source-tag">
+                            <i class="fas fa-map-marker-alt"></i>
+                            {{ prediction.location|default:"Unknown" }}
+                        </span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <span class="source-tag">
+                            <i class="fas fa-smog"></i>
+                            {{ prediction.get_pollution_source_display }}
+                        </span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">
+                            <i class="far fa-clock"></i>
+                            {{ prediction.created_at|timesince }} ago
+                        </small>
+                        <a href="{% url 'snap_result' prediction.id %}" class="btn btn-sm btn-primary">
+                            View Details
+                        </a>
+                    </div>
+                    
+                    {% if prediction.aqi_rise > 0 %}
+                    <div class="alert alert-warning mt-3 mb-0" style="font-size: 0.85rem;">
+                        <strong>+{{ prediction.aqi_rise }} AQI</strong> rise from base
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-state-icon">📸</div>
+        <h3>No Scans Yet</h3>
+        <p class="text-muted">Start capturing pollution sources to build your history</p>
+        <a href="{% url 'snap_to_aqi' %}" class="btn btn-primary btn-lg mt-3">
+            Take Your First Scan
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function filterPredictions(category) {
+    const items = document.querySelectorAll('.prediction-item');
+    const tabs = document.querySelectorAll('.filter-tab');
+    
+    // Update active tab
+    tabs.forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Filter items
+    items.forEach(item => {
+        const aqi = parseInt(item.dataset.aqi);
+        let show = false;
+        
+        switch(category) {
+            case 'all':
+                show = true;
+                break;
+            case 'severe':
+                show = aqi > 300;
+                break;
+            case 'high':
+                show = aqi > 200 && aqi <= 300;
+                break;
+            case 'moderate':
+                show = aqi > 100 && aqi <= 200;
+                break;
+        }
+        
+        item.style.display = show ? 'block' : 'none';
+    });
+}
+</script>
+{% endblock %}

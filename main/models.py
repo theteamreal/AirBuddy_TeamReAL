@@ -208,3 +208,84 @@ class AQIForecast(models.Model):
     
     def __str__(self):
         return f"{self.area} - {self.forecast_date.strftime('%Y-%m-%d')} - AQI {self.predicted_aqi}"
+    
+#darsh
+# Add this new model to your existing models.py
+
+class ImageAQIPrediction(models.Model):
+    """Store CV-based AQI predictions from images"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='image_predictions')
+    
+    # Image
+    image = models.ImageField(upload_to='aqi_images/%Y/%m/%d/')
+    
+    # Location info
+    location = models.CharField(max_length=200, blank=True, help_text="Where was this photo taken?")
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    
+    # Prediction results
+    predicted_aqi = models.IntegerField(help_text="AQI predicted from image")
+    base_aqi = models.IntegerField(help_text="Current AQI from sensors", null=True, blank=True)
+    aqi_rise = models.IntegerField(help_text="Estimated AQI increase from pollution source")
+    
+    # Image analysis
+    haziness_score = models.FloatField(help_text="Haziness/visibility score (0-1)")
+    pollution_source = models.CharField(max_length=50, choices=[
+        ('SMOKE', 'Smoke'),
+        ('DUST', 'Dust'),
+        ('VEHICLE', 'Vehicle Emissions'),
+        ('INDUSTRIAL', 'Industrial'),
+        ('CONSTRUCTION', 'Construction'),
+        ('FIRE', 'Fire/Burning'),
+        ('UNKNOWN', 'Unknown'),
+    ], default='UNKNOWN')
+    
+    # Health impact
+    health_alert_level = models.CharField(max_length=20, choices=[
+        ('LOW', 'Low Impact'),
+        ('MODERATE', 'Moderate Impact'),
+        ('HIGH', 'High Impact'),
+        ('SEVERE', 'Severe Impact'),
+    ])
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Image AQI Prediction"
+        verbose_name_plural = "Image AQI Predictions"
+    
+    def __str__(self):
+        return f"{self.user.username} - AQI {self.predicted_aqi} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+    
+    @property
+    def category(self):
+        """Get AQI category"""
+        if self.predicted_aqi <= 50:
+            return "Good"
+        elif self.predicted_aqi <= 100:
+            return "Satisfactory"
+        elif self.predicted_aqi <= 200:
+            return "Moderate"
+        elif self.predicted_aqi <= 300:
+            return "Poor"
+        elif self.predicted_aqi <= 400:
+            return "Very Poor"
+        return "Severe"
+    
+    @property
+    def color_code(self):
+        """Get color for AQI category"""
+        if self.predicted_aqi <= 50:
+            return "#00E400"  # Green
+        elif self.predicted_aqi <= 100:
+            return "#FFFF00"  # Yellow
+        elif self.predicted_aqi <= 200:
+            return "#FF7E00"  # Orange
+        elif self.predicted_aqi <= 300:
+            return "#FF0000"  # Red
+        elif self.predicted_aqi <= 400:
+            return "#8F3F97"  # Purple
+        return "#7E0023"  # Maroon
