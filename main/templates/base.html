@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Pollution Platform{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #e8e8e8;
+            color: #000;
+            line-height: 1.6;
+        }
+
+        /* Retro Tech Pattern Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,.03) 10px, rgba(0,0,0,.03) 20px),
+                repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(0,0,0,.03) 10px, rgba(0,0,0,.03) 20px);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Header */
+        header {
+            background: #fff;
+            border-bottom: 4px solid #000;
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #000;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo::before {
+            content: '▶';
+            color: #7bed9f;
+            font-size: 1.2rem;
+        }
+
+        nav {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: #000;
+            padding: 0.5rem 1rem;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .nav-link:hover {
+            border: 2px solid #000;
+            background: #f0f0f0;
+        }
+
+        .nav-link.active {
+            background: #000;
+            color: #7bed9f;
+            border: 2px solid #000;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        /* Retro Card */
+        .card {
+            background: #fff;
+            border: 3px solid #000;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 8px 8px 0 rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            width: 20px;
+            height: 20px;
+            background: #7bed9f;
+            border: 3px solid #000;
+        }
+
+        .card-header {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #000;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 0.7rem 1.5rem;
+            background: #000;
+            color: #7bed9f;
+            border: 2px solid #000;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .btn:hover {
+            background: #7bed9f;
+            color: #000;
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #000;
+            border: 2px solid #000;
+        }
+
+        .btn-secondary:hover {
+            background: #f0f0f0;
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #ff5252;
+        }
+
+        /* AQI Badge */
+        .aqi-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            font-weight: bold;
+            border: 2px solid #000;
+            background: #fff;
+        }
+
+        .aqi-good { background: #7bed9f; }
+        .aqi-moderate { background: #ffd93d; }
+        .aqi-unhealthy-sensitive { background: #ffb347; }
+        .aqi-unhealthy { background: #ff6b6b; color: #fff; }
+        .aqi-very-unhealthy { background: #8b00ff; color: #fff; }
+        .aqi-hazardous { background: #4a0000; color: #fff; }
+
+        /* Alert Box */
+        .alert {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 3px solid #000;
+            background: #fff;
+        }
+
+        .alert-info { border-left: 8px solid #3498db; }
+        .alert-warning { border-left: 8px solid #ffd93d; }
+        .alert-danger { border-left: 8px solid #ff6b6b; }
+        .alert-success { border-left: 8px solid #7bed9f; }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Footer */
+        footer {
+            background: #000;
+            color: #7bed9f;
+            text-align: center;
+            padding: 1.5rem;
+            margin-top: 3rem;
+            border-top: 4px solid #7bed9f;
+        }
+
+        /* Decorative Elements */
+        .pixel-corner {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #000;
+        }
+
+        .pixel-corner.top-left { top: -3px; left: -3px; }
+        .pixel-corner.top-right { top: -3px; right: -3px; }
+        .pixel-corner.bottom-left { bottom: -3px; left: -3px; }
+        .pixel-corner.bottom-right { bottom: -3px; right: -3px; }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control, .form-select {
+            width: 100%;
+            padding: 0.7rem;
+            border: 2px solid #000;
+            background: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: #7bed9f;
+            box-shadow: 0 0 0 3px rgba(123, 237, 159, 0.2);
+        }
+
+        .form-check-input {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #000;
+            margin-right: 0.5rem;
+            cursor: pointer;
+        }
+
+        /* Messages */
+        .messages {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .message {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border: 3px solid #000;
+            background: #fff;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Stats Display */
+        .stat-box {
+            text-align: center;
+            padding: 1.5rem;
+            background: #f9f9f9;
+            border: 2px solid #000;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            margin-top: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            nav {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .container {
+                padding: 0 1rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="{% url 'home' %}" class="logo">POLLUTION.PLATFORM</a>
+            <nav>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'dashboard' %}" class="nav-link">Dashboard</a>
+                    <a href="{% url 'aqi_map' %}" class="nav-link">AQI Map</a>
+                    <a href="{% url 'forecasts' %}" class="nav-link">Forecasts</a>
+                    <a href="{% url 'policies' %}" class="nav-link">Policies</a>
+                    <a href="{% url 'policy_simulation' %}" class="nav-link">Simulator</a>
+                    <a href="{% url 'logout' %}" class="nav-link">Logout ({{ user.username }})</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="nav-link">Login</a>
+                    <a href="{% url 'register' %}" class="nav-link">Register</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="message alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        <p>▶ POLLUTION PLATFORM v1.0 // DELHI NCR AIR QUALITY MONITORING</p>
+        <p style="margin-top: 0.5rem; font-size: 0.9rem;">Clean Air Initiative</p>
+    </footer>
+
+    <script>
+        // Auto-hide messages after 5 seconds
+        setTimeout(() => {
+            const messages = document.querySelectorAll('.messages .message');
+            messages.forEach(msg => {
+                msg.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => msg.remove(), 300);
+            });
+        }, 5000);
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+
+{% block title %}AQI Forecasts - Pollution Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    .forecast-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .forecast-card {
+        background: #fff;
+        border: 3px solid #000;
+        padding: 1.5rem;
+        position: relative;
+    }
+
+    .forecast-card::before {
+        content: '';
+        position: absolute;
+        top: -3px;
+        left: -3px;
+        width: 16px;
+        height: 16px;
+        background: #7bed9f;
+        border: 3px solid #000;
+    }
+
+    .forecast-date {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .forecast-time {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 1rem;
+    }
+
+    .forecast-aqi {
+        text-align: center;
+        padding: 1.5rem 0;
+    }
+
+    .forecast-value {
+        font-size: 3.5rem;
+        font-weight: bold;
+        line-height: 1;
+    }
+
+    .confidence-bar {
+        width: 100%;
+        height: 20px;
+        background: #e0e0e0;
+        border: 2px solid #000;
+        margin-top: 1rem;
+        position: relative;
+    }
+
+    .confidence-fill {
+        height: 100%;
+        background: #7bed9f;
+    }
+
+    .confidence-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-weight: bold;
+        font-size: 0.8rem;
+    }
+
+    .timeline-view {
+        margin-top: 2rem;
+        background: #fff;
+        border: 3px solid #000;
+        padding: 2rem;
+    }
+
+    .timeline-hours {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .hour-block {
+        text-align: center;
+        padding: 1rem;
+        border: 2px solid #000;
+        background: #f9f9f9;
+        transition: all 0.2s;
+    }
+
+    .hour-block:hover {
+        transform: translateY(-3px);
+        box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+    }
+
+    .hour-time {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+    }
+
+    .hour-aqi {
+        font-size: 1.8rem;
+        font-weight: bold;
+    }
+
+    .weather-note {
+        background: #f0f0f0;
+        border: 2px solid #000;
+        padding: 1rem;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .seasonal-trend {
+        margin-top: 2rem;
+        background: #fff;
+        border: 3px solid #000;
+        padding: 2rem;
+    }
+
+    .trend-chart {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        height: 250px;
+        margin-top: 1.5rem;
+        border-bottom: 3px solid #000;
+        border-left: 3px solid #000;
+        padding: 1rem;
+        gap: 0.5rem;
+        position: relative;
+    }
+
+    .trend-bar {
+        flex: 1;
+        background: linear-gradient(to top, #7bed9f, #ffd93d, #ff6b6b);
+        border: 2px solid #000;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s;
+        min-width: 40px;
+    }
+
+    .trend-bar:hover {
+        transform: scaleY(1.05);
+        box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .trend-label {
+        text-align: center;
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+
+    .y-axis {
+        position: absolute;
+        left: -50px;
+        top: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: #666;
+    }
+
+    .comparison-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .comparison-card {
+        background: #f9f9f9;
+        border: 2px solid #000;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .comparison-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+
+    .comparison-label {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .arrow-up {
+        color: #ff6b6b;
+        font-size: 1.5rem;
+    }
+
+    .arrow-down {
+        color: #7bed9f;
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #000; color: #7bed9f; border-color: #7bed9f;">
+    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">📊 AQI FORECASTS</h1>
+    <p style="opacity: 0.8;">AI-powered predictions for next 24-72 hours</p>
+</div>
+
+<div class="card">
+    <div class="card-header">⏰ Next 24 Hours Overview</div>
+    <div class="timeline-hours">
+        {% for forecast in forecasts|slice:":8" %}
+        <div class="hour-block">
+            <div class="hour-time">{{ forecast.forecast_date|date:"h A" }}</div>
+            <div class="hour-aqi" style="color: {% if forecast.predicted_aqi <= 100 %}#7bed9f{% elif forecast.predicted_aqi <= 200 %}#ffd93d{% elif forecast.predicted_aqi <= 300 %}#ff6b6b{% else %}#8b00ff{% endif %}">
+                {{ forecast.predicted_aqi }}
+            </div>
+            <div class="aqi-badge {% if forecast.predicted_aqi <= 50 %}aqi-good{% elif forecast.predicted_aqi <= 100 %}aqi-moderate{% elif forecast.predicted_aqi <= 200 %}aqi-unhealthy-sensitive{% elif forecast.predicted_aqi <= 300 %}aqi-unhealthy{% elif forecast.predicted_aqi <= 400 %}aqi-very-unhealthy{% else %}aqi-hazardous{% endif %}" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; margin-top: 0.5rem;">
+                {{ forecast.area|truncatewords:1 }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if forecasts %}
+<div class="forecast-grid">
+    {% for forecast in forecasts %}
+    <div class="forecast-card">
+        <div class="forecast-date">{{ forecast.forecast_date|date:"l, M d" }}</div>
+        <div class="forecast-time">{{ forecast.forecast_date|date:"h:i A" }}</div>
+        
+        <div style="background: #f9f9f9; border: 2px solid #000; padding: 0.5rem; margin-bottom: 1rem;">
+            <strong>📍 {{ forecast.area }}</strong>
+        </div>
+        
+        <div class="forecast-aqi">
+            <div class="forecast-value" style="color: {% if forecast.predicted_aqi <= 100 %}#7bed9f{% elif forecast.predicted_aqi <= 200 %}#ffd93d{% elif forecast.predicted_aqi <= 300 %}#ff6b6b{% else %}#8b00ff{% endif %}">
+                {{ forecast.predicted_aqi }}
+            </div>
+            <div class="aqi-badge {% if forecast.predicted_aqi <= 50 %}aqi-good{% elif forecast.predicted_aqi <= 100 %}aqi-moderate{% elif forecast.predicted_aqi <= 200 %}aqi-unhealthy-sensitive{% elif forecast.predicted_aqi <= 300 %}aqi-unhealthy{% elif forecast.predicted_aqi <= 400 %}aqi-very-unhealthy{% else %}aqi-hazardous{% endif %}" style="margin-top: 0.5rem;">
+                {% if forecast.predicted_aqi <= 50 %}Good{% elif forecast.predicted_aqi <= 100 %}Moderate{% elif forecast.predicted_aqi <= 200 %}Unhealthy (Sensitive){% elif forecast.predicted_aqi <= 300 %}Unhealthy{% elif forecast.predicted_aqi <= 400 %}Very Unhealthy{% else %}Hazardous{% endif %}
+            </div>
+        </div>
+        
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #e0e0e0;">
+            <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">
+                <strong>Prediction Confidence:</strong>
+            </div>
+            <div class="confidence-bar">
+                <div class="confidence-fill" style="width: {% widthratio forecast.confidence 1 100 %}%"></div>
+                <div class="confidence-text">{{ forecast.confidence|floatformat:2|slice:"2:" }}%</div>
+            </div>
+        </div>
+        
+        <div class="weather-note">
+            {% if forecast.predicted_aqi > 200 %}
+            ⚠️ <strong>High pollution expected.</strong> Limit outdoor activities.
+            {% elif forecast.predicted_aqi > 100 %}
+            ⚠️ <strong>Moderate pollution.</strong> Sensitive groups should take precautions.
+            {% else %}
+            ✓ <strong>Good air quality expected.</strong> Safe for outdoor activities.
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="seasonal-trend">
+    <div class="card-header">📈 72-Hour Forecast Trend</div>
+    <div style="position: relative; margin-left: 50px;">
+        <div class="y-axis">
+            <span>400</span>
+            <span>300</span>
+            <span>200</span>
+            <span>100</span>
+            <span>0</span>
+        </div>
+        <div class="trend-chart">
+            {% for forecast in forecasts|slice:":24" %}
+            <div class="trend-bar" style="height: {% widthratio forecast.predicted_aqi 400 100 %}%;" 
+                 title="{{ forecast.area }}: AQI {{ forecast.predicted_aqi }} at {{ forecast.forecast_date|date:'M d, h A' }}">
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+            <span style="font-size: 0.8rem; color: #666;">Now</span>
+            <span style="font-size: 0.8rem; color: #666;">+24h</span>
+            <span style="font-size: 0.8rem; color: #666;">+48h</span>
+            <span style="font-size: 0.8rem; color: #666;">+72h</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">📊 Forecast Summary</div>
+    <div class="comparison-cards">
+        <div class="comparison-card">
+            <div class="comparison-label">Average AQI (24h)</div>
+            <div class="comparison-value">
+                {% widthratio forecasts|slice:":8"|length|default:1 forecasts|slice:":8"|length|default:1 1 as count %}
+                {{ forecasts.0.predicted_aqi|default:0 }}
+            </div>
+        </div>
+        <div class="comparison-card">
+            <div class="comparison-label">Peak Expected</div>
+            <div class="comparison-value" style="color: #ff6b6b;">
+                {% for f in forecasts|slice:":24" %}
+                    {% if forloop.first %}{{ f.predicted_aqi }}{% endif %}
+                {% endfor %}
+            </div>
+            <div class="arrow-up">↑</div>
+        </div>
+        <div class="comparison-card">
+            <div class="comparison-label">Lowest Expected</div>
+            <div class="comparison-value" style="color: #7bed9f;">
+                {% for f in forecasts|slice:":24"|dictsortreversed:"predicted_aqi" %}
+                    {% if forloop.first %}{{ f.predicted_aqi }}{% endif %}
+                {% endfor %}
+            </div>
+            <div class="arrow-down">↓</div>
+        </div>
+        <div class="comparison-card">
+            <div class="comparison-label">Model Confidence</div>
+            <div class="comparison-value">
+                {{ forecasts.0.confidence|floatformat:2|slice:"2:" }}%
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card">
+    <p style="text-align: center; padding: 3rem; color: #666;">
+        No forecast data available at the moment. Please check back later.
+    </p>
+</div>
+{% endif %}
+
+<div class="card" style="background: #fffbea; border-color: #ffd93d;">
+    <div class="card-header">💡 ABOUT FORECASTS</div>
+    <div style="padding: 0.5rem 0;">
+        <p style="margin-bottom: 0.5rem;"><strong>How forecasts work:</strong> Our AI model analyzes historical patterns, weather data, pollution sources, and seasonal trends to predict future air quality.</p>
+        <p style="margin-bottom: 0.5rem;"><strong>Confidence Score:</strong> Indicates how reliable the prediction is. Higher confidence means more accurate forecast.</p>
+        <p style="margin-bottom: 0.5rem;"><strong>Factors Considered:</strong> Wind speed, temperature, humidity, traffic patterns, construction activity, crop burning alerts, and industrial operations.</p>
+        <p style="margin-bottom: 0;"><strong>Update Frequency:</strong> Forecasts are updated every 6 hours with the latest data and weather information.</p>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 1.5rem;">
+    <div class="card-header">🎯 Quick Actions</div>
+    <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+        <a href="{% url 'aqi_map' %}" class="btn btn-secondary">View AQI Map →</a>
+        <a href="{% url 'policies' %}" class="btn btn-secondary">View Policies →</a>
+    </div>
+</div>
+{% endblock %}

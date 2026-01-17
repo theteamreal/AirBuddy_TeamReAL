@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - {{ user.username }}{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #000; color: #7bed9f; border-color: #7bed9f;">
+    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">▶ WELCOME, {{ user.username|upper }}</h1>
+    <p style="opacity: 0.8;">RISK LEVEL: <span style="font-weight: bold; color: #fff;">{{ health_profile.get_risk_level_display|upper }}</span></p>
+</div>
+
+{% if alerts %}
+<div style="margin-bottom: 1.5rem;">
+    {% for alert in alerts %}
+    <div class="alert alert-{{ alert.level }}">
+        {{ alert.message }}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="grid">
+    <!-- Current AQI -->
+    <div class="card">
+        <div class="card-header">📍 Your Location AQI</div>
+        {% if location_aqi %}
+        <div style="text-align: center; padding: 1rem 0;">
+            <div style="font-size: 3rem; font-weight: bold; margin-bottom: 0.5rem;">
+                {{ location_aqi.aqi_value }}
+            </div>
+            <div class="aqi-badge {% if location_aqi.aqi_value <= 50 %}aqi-good{% elif location_aqi.aqi_value <= 100 %}aqi-moderate{% elif location_aqi.aqi_value <= 200 %}aqi-unhealthy-sensitive{% elif location_aqi.aqi_value <= 300 %}aqi-unhealthy{% elif location_aqi.aqi_value <= 400 %}aqi-very-unhealthy{% else %}aqi-hazardous{% endif %}">
+                {{ location_aqi.category }}
+            </div>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                {{ location_aqi.area }} • {{ location_aqi.timestamp|date:"d M Y, h:i A" }}
+            </p>
+        </div>
+        {% else %}
+        <p style="text-align: center; padding: 2rem; color: #666;">
+            No AQI data available for your location. Update your location in profile settings.
+        </p>
+        {% endif %}
+    </div>
+
+    <!-- Health Profile -->
+    <div class="card">
+        <div class="card-header">❤️ Your Health Profile</div>
+        <div style="padding: 0.5rem 0;">
+            <p style="margin-bottom: 0.5rem;"><strong>Location:</strong> {{ health_profile.location|default:"Not set" }}</p>
+            <p style="margin-bottom: 0.5rem;"><strong>Risk Level:</strong> 
+                <span class="aqi-badge {% if health_profile.risk_level == 'LOW' %}aqi-good{% elif health_profile.risk_level == 'MODERATE' %}aqi-moderate{% elif health_profile.risk_level == 'HIGH' %}aqi-unhealthy{% else %}aqi-hazardous{% endif %}">
+                    {{ health_profile.get_risk_level_display }}
+                </span>
+            </p>
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #e0e0e0;">
+                <p style="font-size: 0.9rem; color: #666;"><strong>Conditions:</strong></p>
+                {% if health_profile.has_respiratory_issues %}<p style="font-size: 0.9rem;">• Respiratory Issues</p>{% endif %}
+                {% if health_profile.has_heart_disease %}<p style="font-size: 0.9rem;">• Heart Disease</p>{% endif %}
+                {% if health_profile.has_allergies %}<p style="font-size: 0.9rem;">• Allergies</p>{% endif %}
+                {% if health_profile.is_elderly %}<p style="font-size: 0.9rem;">• Age 60+</p>{% endif %}
+                {% if health_profile.is_child %}<p style="font-size: 0.9rem;">• Child (under 12)</p>{% endif %}
+                {% if health_profile.is_pregnant %}<p style="font-size: 0.9rem;">• Pregnant</p>{% endif %}
+                {% if not health_profile.has_respiratory_issues and not health_profile.has_heart_disease and not health_profile.has_allergies and not health_profile.is_elderly and not health_profile.is_child and not health_profile.is_pregnant %}
+                <p style="font-size: 0.9rem; color: #666;">No health conditions specified</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pollution Sources -->
+{% if location_aqi %}
+<div class="card">
+    <div class="card-header">🔍 Pollution Source Breakdown</div>
+    <div style="padding: 1rem 0;">
+        <p style="margin-bottom: 1rem;"><strong>Primary Source:</strong> {{ location_aqi.primary_source }}</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+                <div style="background: #f0f0f0; padding: 0.8rem; border: 2px solid #000;">
+                    <div style="font-size: 0.85rem; margin-bottom: 0.3rem;">🚗 Traffic</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">{{ location_aqi.traffic_contribution|floatformat:1 }}%</div>
+                </div>
+            </div>
+            <div>
+                <div style="background: #f0f0f0; padding: 0.8rem; border: 2px solid #000;">
+                    <div style="font-size: 0.85rem; margin-bottom: 0.3rem;">🏭 Industry</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">{{ location_aqi.industrial_contribution|floatformat:1 }}%</div>
+                </div>
+            </div>
+            <div>
+                <div style="background: #f0f0f0; padding: 0.8rem; border: 2px solid #000;">
+                    <div style="font-size: 0.85rem; margin-bottom: 0.3rem;">🔥 Crop Burning</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">{{ location_aqi.crop_burning_contribution|floatformat:1 }}%</div>
+                </div>
+            </div>
+            <div>
+                <div style="background: #f0f0f0; padding: 0.8rem; border: 2px solid #000;">
+                    <div style="font-size: 0.85rem; margin-bottom: 0.3rem;">🏗️ Construction</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">{{ location_aqi.construction_contribution|floatformat:1 }}%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Forecasts -->
+<div class="card">
+    <div class="card-header">📊 AQI Forecasts (Next 72 Hours)</div>
+    {% if forecasts %}
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f0f0f0; border-bottom: 2px solid #000;">
+                    <th style="padding: 0.8rem; text-align: left;">Date & Time</th>
+                    <th style="padding: 0.8rem; text-align: center;">Area</th>
+                    <th style="padding: 0.8rem; text-align: center;">Predicted AQI</th>
+                    <th style="padding: 0.8rem; text-align: center;">Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for forecast in forecasts %}
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 0.8rem;">{{ forecast.forecast_date|date:"d M Y, h:i A" }}</td>
+                    <td style="padding: 0.8rem; text-align: center;">{{ forecast.area }}</td>
+                    <td style="padding: 0.8rem; text-align: center;"><strong>{{ forecast.predicted_aqi }}</strong></td>
+                    <td style="padding: 0.8rem; text-align: center;">{{ forecast.confidence|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="text-align: center; padding: 2rem; color: #666;">No forecasts available at the moment.</p>
+    {% endif %}
+</div>
+
+<!-- Trending Policies -->
+<div class="card">
+    <div class="card-header">⚖️ Trending Policy Proposals</div>
+    {% if trending_policies %}
+    <div style="padding: 0.5rem 0;">
+        {% for policy in trending_policies %}
+        <div style="padding: 1rem; margin-bottom: 0.5rem; border: 2px solid #e0e0e0; background: #f9f9f9;">
+            <h4 style="margin-bottom: 0.5rem;">{{ policy.title }}</h4>
+            <p style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{{ policy.description|truncatewords:20 }}</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="aqi-badge">{{ policy.get_policy_type_display }}</span>
+                <div style="font-size: 0.85rem;">
+                    <span style="color: #7bed9f; font-weight: bold;">{{ policy.agree_count }} ✓</span> / 
+                    <span style="color: #ff6b6b; font-weight: bold;">{{ policy.disagree_count }} ✗</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div style="text-align: center; margin-top: 1rem;">
+            <a href="{% url 'policies' %}" class="btn btn-secondary">View All Policies →</a>
+        </div>
+    </div>
+    {% else %}
+    <p style="text-align: center; padding: 2rem; color: #666;">No policies proposed yet.</p>
+    {% endif %}
+</div>
+
+<!-- Quick Actions -->
+<div class="grid">
+    <a href="{% url 'aqi_map' %}" class="card" style="text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s;">
+        <div class="card-header">🗺️ View AQI Map</div>
+        <p style="padding: 1rem 0;">Explore pollution heatmaps and area-wise air quality data.</p>
+    </a>
+    
+    <a href="{% url 'create_policy' %}" class="card" style="text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s;">
+        <div class="card-header">💡 Propose Policy</div>
+        <p style="padding: 1rem 0;">Share your ideas for pollution control policies.</p>
+    </a>
+    
+    <a href="{% url 'policy_simulation' %}" class="card" style="text-decoration: none; color: inherit; cursor: pointer; transition: transform 0.2s;">
+        <div class="card-header">⚙️ Run Simulation</div>
+        <p style="padding: 1rem 0;">Test the impact of different pollution control measures.</p>
+    </a>
+</div>
+{% endblock %}
