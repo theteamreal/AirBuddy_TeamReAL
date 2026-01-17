@@ -1,3 +1,5 @@
+import requests
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
@@ -286,3 +288,37 @@ def policy_simulation(request):
     return render(request, 'policy_simulation.html', {
         'policies': policies
     })
+
+#jemit
+def fetch_live_aqi(city):
+    try:
+        url = f"https://api.waqi.info/feed/{city}/?token={settings.AQI_API_TOKEN}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+
+        if data.get("status") != "ok":
+            return None
+
+        iaqi = data["data"].get("iaqi", {})
+
+        return {
+            "aqi": data["data"]["aqi"],
+            "pm25": iaqi.get("pm25", {}).get("v"),
+            "pm10": iaqi.get("pm10", {}).get("v"),
+            "no2": iaqi.get("no2", {}).get("v"),
+            "co": iaqi.get("co", {}).get("v"),
+            "time": data["data"]["time"]["s"],
+            "city": data["data"]["city"]["name"]
+        }
+    except Exception:
+        return None
+
+@login_required
+def live_aqi(request):
+    city = request.user.health_profile.location or "delhi"
+    data = fetch_live_aqi(city)
+
+    if not data:
+        return JsonResponse({"error": "AQI data unavailable"})
+
+    return JsonResponse(data)

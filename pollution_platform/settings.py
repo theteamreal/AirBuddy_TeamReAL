@@ -5,6 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-2-_ey68p=z6b+li1lq_o3%wnn5-%yc+s5#4wlz^#hel21u=8ul'
 DEBUG = True
 ALLOWED_HOSTS = []
+AQI_API_TOKEN = "970a0246132c9ee505e98a7e1088c4d4867dbac2"  #jemit
 
 INSTALLED_APPS = [
     'django.contrib.admin',

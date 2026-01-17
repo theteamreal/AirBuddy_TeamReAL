@@ -20,7 +20,8 @@ urlpatterns = [
     # AQI Features
     path('aqi-map/', views.aqi_map, name='aqi_map'),
     path('forecasts/', views.forecasts, name='forecasts'),
-    
+    path("live-aqi/", views.live_aqi, name="live_aqi"),
+
     # Policy Simulation
     path('policy-simulation/', views.policy_simulation, name='policy_simulation'),
 ]
