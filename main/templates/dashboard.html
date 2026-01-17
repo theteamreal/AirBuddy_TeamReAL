@@ -18,6 +18,36 @@
 </div>
 {% endif %}
 
+{# jemit #}
+<div class="card">
+    <div class="card-header">🌐 Live AQI Data</div>
+    <div style="text-align: center; padding: 1rem 0;">
+        <div style="font-size: 3rem; font-weight: bold; margin-bottom: 0.5rem;" id="aqiValue">--</div>
+        <div class="aqi-badge aqi-moderate" id="aqiBadge">Loading...</div>
+        <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+            <span id="aqiCity">--</span> • <span id="aqiTime">--</span>
+        </p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; padding: 1rem 0; border-top: 2px solid #e0e0e0;">
+        <div style="text-align: center;">
+            <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.3rem;">PM2.5</div>
+            <div style="font-size: 1.3rem; font-weight: bold;" id="pm25">--</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.3rem;">PM10</div>
+            <div style="font-size: 1.3rem; font-weight: bold;" id="pm10">--</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.3rem;">NO₂</div>
+            <div style="font-size: 1.3rem; font-weight: bold;" id="no2">--</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.3rem;">CO</div>
+            <div style="font-size: 1.3rem; font-weight: bold;" id="co">--</div>
+        </div>
+    </div>
+</div>
+
 <div class="grid">
     <!-- Current AQI -->
     <div class="card">
@@ -143,7 +173,7 @@
         <div style="padding: 1rem; margin-bottom: 0.5rem; border: 2px solid #e0e0e0; background: #f9f9f9;">
             <h4 style="margin-bottom: 0.5rem;">{{ policy.title }}</h4>
             <p style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{{ policy.description|truncatewords:20 }}</p>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-space-between; align-items: center;">
                 <span class="aqi-badge">{{ policy.get_policy_type_display }}</span>
                 <div style="font-size: 0.85rem;">
                     <span style="color: #7bed9f; font-weight: bold;">{{ policy.agree_count }} ✓</span> / 
@@ -178,4 +208,44 @@
         <p style="padding: 1rem 0;">Test the impact of different pollution control measures.</p>
     </a>
 </div>
+
+<script>
+function getAQICategory(aqi) {
+    if (aqi <= 50) return { class: 'aqi-good', text: 'Good' };
+    if (aqi <= 100) return { class: 'aqi-moderate', text: 'Moderate' };
+    if (aqi <= 200) return { class: 'aqi-unhealthy-sensitive', text: 'Unhealthy for Sensitive Groups' };
+    if (aqi <= 300) return { class: 'aqi-unhealthy', text: 'Unhealthy' };
+    if (aqi <= 400) return { class: 'aqi-very-unhealthy', text: 'Very Unhealthy' };
+    return { class: 'aqi-hazardous', text: 'Hazardous' };
+}
+
+function loadLiveAQI() {
+    fetch("/live-aqi/")
+        .then(res => res.json())
+        .then(data => {
+            if (!data.error) {
+                const category = getAQICategory(data.aqi);
+                
+                document.getElementById("aqiValue").innerText = data.aqi;
+                document.getElementById("pm25").innerText = data.pm25 ?? "--";
+                document.getElementById("pm10").innerText = data.pm10 ?? "--";
+                document.getElementById("no2").innerText = data.no2 ?? "--";
+                document.getElementById("co").innerText = data.co ?? "--";
+                document.getElementById("aqiTime").innerText = data.time;
+                document.getElementById("aqiCity").innerText = data.city;
+                
+                const badge = document.getElementById("aqiBadge");
+                badge.className = 'aqi-badge ' + category.class;
+                badge.innerText = category.text;
+            }
+        })
+        .catch(err => {
+            console.error("Error loading live AQI:", err);
+        });
+}
+
+loadLiveAQI();
+setInterval(loadLiveAQI, 300000);
+</script>
+
 {% endblock %}

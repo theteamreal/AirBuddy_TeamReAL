@@ -36,6 +36,7 @@ urlpatterns = [
     
     # Admin model training
     path('retrain-model/', views.retrain_model, name='retrain_model'),
+    path('live-aqi/', views.live_aqi, name='live_aqi'),
     
     # API endpoints (optional)
     path('api/aqi/', views.get_city_aqi_api, name='api_city_aqi'),

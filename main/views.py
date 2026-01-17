@@ -12,6 +12,8 @@ import random
 from .aqi_predictor import predict_aqi, get_current_aqi
 from .models import AQIData, UserHealthProfile
 from .aqi_predictor import predict_aqi, get_current_aqi, train_model
+import requests
+from django.conf import settings
 
 
 from .aqi_predictor import predict_aqi 
@@ -66,7 +68,10 @@ def dashboard(request):
     # Get general Delhi NCR AQI data
     recent_aqi = AQIData.objects.all()[:10]
     
-    
+    # Get forecasts
+    forecasts = AQIForecast.objects.filter(
+        forecast_date__gte=datetime.now()
+    )[:5]
     
     # Get personalized health alerts
     alerts = get_health_alerts(health_profile, location_aqi)
@@ -78,6 +83,7 @@ def dashboard(request):
         'health_profile': health_profile,
         'location_aqi': location_aqi,
         'recent_aqi': recent_aqi,
+        'forecasts': forecasts,
         'alerts': alerts,
         'trending_policies': trending_policies,
     }
@@ -342,29 +348,228 @@ def forecasts(request):
     return render(request, 'forecasts.html', context)
 
 
+# darsh - Enhanced Policy Impact Simulator with real-time data and scientific calculations
 @login_required
 def policy_simulation(request):
-    """Simulate policy impact"""
+    """Simulate policy impact using real AQI data and scientific impact models"""
+    
+    # Get all unique areas with their latest AQI data
+    areas_data = {}
+    for area in AQIData.objects.values('area').distinct():
+        latest = AQIData.objects.filter(area=area['area']).order_by('-timestamp').first()
+        if latest:
+            areas_data[area['area']] = {
+                'aqi': latest.aqi_value,
+                'pm25': latest.pm25,
+                'pm10': latest.pm10,
+                'traffic': latest.traffic_contribution,
+                'industrial': latest.industrial_contribution,
+                'crop_burning': latest.crop_burning_contribution,
+                'construction': latest.construction_contribution,
+                'other': latest.other_contribution,
+            }
+    
+    # Scientific impact percentages based on research (source contribution reduction effectiveness)
+    # darsh - These are based on Delhi NCR pollution studies
+    POLICY_IMPACT = {
+        'TRAFFIC': {
+            'name': 'Traffic Control (Odd-Even)',
+            'source': 'traffic',
+            'min_reduction': 0.10,  # 10% of traffic contribution
+            'max_reduction': 0.25,  # 25% of traffic contribution
+            'health_factor': 1.2,   # Health improvement multiplier
+            'cost_per_day': 50000000,  # ₹5 Cr/day implementation cost
+        },
+        'INDUSTRY': {
+            'name': 'Industrial Control',
+            'source': 'industrial',
+            'min_reduction': 0.15,
+            'max_reduction': 0.35,
+            'health_factor': 1.5,
+            'cost_per_day': 100000000,
+        },
+        'CONSTRUCTION': {
+            'name': 'Construction Regulation',
+            'source': 'construction',
+            'min_reduction': 0.20,
+            'max_reduction': 0.40,
+            'health_factor': 1.1,
+            'cost_per_day': 30000000,
+        },
+        'FIRECRACKER': {
+            'name': 'Firecracker Ban',
+            'source': 'other',
+            'min_reduction': 0.30,
+            'max_reduction': 0.50,
+            'health_factor': 1.8,
+            'cost_per_day': 10000000,
+        },
+        'CROP_BURNING': {
+            'name': 'Crop Burning Control',
+            'source': 'crop_burning',
+            'min_reduction': 0.25,
+            'max_reduction': 0.45,
+            'health_factor': 2.0,
+            'cost_per_day': 200000000,
+        },
+    }
+    
     if request.method == 'POST':
-        policy_id = request.POST.get('policy_id')
-        # Here you would implement actual simulation logic
-        # For now, return simulated data
+        import json
+        data = json.loads(request.body)
+        
+        selected_policies = data.get('policies', [])
+        implementation_level = float(data.get('implementation_level', 75)) / 100
+        duration_days = int(data.get('duration', 30))
+        selected_area = data.get('area', 'all')
+        
+        # Get areas to simulate
+        if selected_area == 'all':
+            simulation_areas = areas_data
+        else:
+            simulation_areas = {selected_area: areas_data.get(selected_area, {})}
+        
+        results = []
+        total_before_aqi = 0
+        total_after_aqi = 0
+        total_reduction = 0
+        total_health_benefit = 0
+        total_cost = 0
+        
+        for area_name, area_info in simulation_areas.items():
+            if not area_info:
+                continue
+                
+            before_aqi = area_info['aqi']
+            aqi_reduction = 0
+            
+            # Calculate cumulative impact from all selected policies
+            for policy_type in selected_policies:
+                if policy_type in POLICY_IMPACT:
+                    impact = POLICY_IMPACT[policy_type]
+                    source = impact['source']
+                    source_contribution = area_info.get(source, 0)
+                    
+                    # Calculate reduction based on implementation level
+                    reduction_rate = impact['min_reduction'] + (impact['max_reduction'] - impact['min_reduction']) * implementation_level
+                    
+                    # AQI reduction = source contribution * reduction rate
+                    policy_aqi_reduction = (source_contribution / 100) * before_aqi * reduction_rate
+                    aqi_reduction += policy_aqi_reduction
+                    
+                    # Add to total cost
+                    total_cost += impact['cost_per_day'] * duration_days * implementation_level
+            
+            after_aqi = max(50, before_aqi - aqi_reduction)  # Minimum AQI of 50 (good air)
+            reduction_percent = ((before_aqi - after_aqi) / before_aqi) * 100 if before_aqi > 0 else 0
+            
+            # Health benefit calculation (lives saved per year per 10 AQI reduction)
+            # Based on WHO data: ~1.5% mortality reduction per 10 μg/m³ PM2.5 reduction
+            health_benefit = (before_aqi - after_aqi) * 0.15 * (duration_days / 365) * 1000  # Per million population
+            
+            results.append({
+                'area': area_name,
+                'before_aqi': round(before_aqi),
+                'after_aqi': round(after_aqi),
+                'reduction': round(reduction_percent, 1),
+                'health_benefit': round(health_benefit),
+            })
+            
+            total_before_aqi += before_aqi
+            total_after_aqi += after_aqi
+            total_health_benefit += health_benefit
+        
+        num_areas = len(results) if results else 1
+        avg_before = round(total_before_aqi / num_areas)
+        avg_after = round(total_after_aqi / num_areas)
+        avg_reduction = round(((avg_before - avg_after) / avg_before) * 100, 1) if avg_before > 0 else 0
+        
+        # Calculate AQI categories
+        def get_category(aqi):
+            if aqi <= 50: return 'Good'
+            elif aqi <= 100: return 'Satisfactory'
+            elif aqi <= 200: return 'Moderate'
+            elif aqi <= 300: return 'Poor'
+            elif aqi <= 400: return 'Very Poor'
+            else: return 'Severe'
         
         return JsonResponse({
             'success': True,
-            'before_aqi': random.randint(200, 350),
-            'after_aqi': random.randint(100, 200),
-            'reduction': random.randint(20, 50),
+            'summary': {
+                'avg_before_aqi': avg_before,
+                'avg_after_aqi': avg_after,
+                'avg_reduction': avg_reduction,
+                'before_category': get_category(avg_before),
+                'after_category': get_category(avg_after),
+                'total_health_benefit': round(total_health_benefit),
+                'total_cost_crores': round(total_cost / 10000000, 2),
+                'duration_days': duration_days,
+                'implementation_level': int(implementation_level * 100),
+                'policies_applied': len(selected_policies),
+                'areas_affected': num_areas,
+            },
+            'area_results': sorted(results, key=lambda x: x['reduction'], reverse=True)[:10],
         })
     
+    # GET request - render the simulation page
     policies = Policy.objects.filter(status='PROPOSED')
     
-    return render(request, 'policy_simulation.html', {
-        'policies': policies
-    })
+    # Calculate current average AQI
+    avg_aqi = sum([a['aqi'] for a in areas_data.values()]) / len(areas_data) if areas_data else 0
+    
+    context = {
+        'policies': policies,
+        'areas': list(areas_data.keys()),
+        'areas_data': areas_data,
+        'current_avg_aqi': round(avg_aqi),
+        'policy_types': [
+            {'code': 'TRAFFIC', 'name': 'Traffic Control (Odd-Even)', 'icon': '🚗'},
+            {'code': 'INDUSTRY', 'name': 'Industrial Control', 'icon': '🏭'},
+            {'code': 'CONSTRUCTION', 'name': 'Construction Regulation', 'icon': '🏗️'},
+            {'code': 'FIRECRACKER', 'name': 'Firecracker Ban', 'icon': '🎆'},
+            {'code': 'CROP_BURNING', 'name': 'Crop Burning Control', 'icon': '🌾'},
+        ],
+    }
+    
+    return render(request, 'policy_simulation.html', context)
 
+def fetch_live_aqi(city):
+    try:
+        url = f"https://api.waqi.info/feed/{city}/?token={settings.AQI_API_TOKEN}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
 
+        if data.get("status") != "ok":
+            return None
 
+        iaqi = data["data"].get("iaqi", {})
+
+        return {
+            "aqi": data["data"]["aqi"],
+            "pm25": iaqi.get("pm25", {}).get("v"),
+            "pm10": iaqi.get("pm10", {}).get("v"),
+            "no2": iaqi.get("no2", {}).get("v"),
+            "co": iaqi.get("co", {}).get("v"),
+            "time": data["data"]["time"]["s"],
+            "city": data["data"]["city"]["name"]
+        }
+    except Exception:
+        return None
+
+def live_aqi(request):
+    user = request.user
+
+    city = "delhi"  # default fallback
+
+    if hasattr(user, "health_profile") and user.health_profile:
+        city = user.health_profile.location or city
+
+    data = fetch_live_aqi(city)
+
+    if not data:
+        return JsonResponse({"error": "AQI data unavailable"}, status=503)
+
+    return JsonResponse(data)
 
 def home(request):
     """Landing page - Capture The Flag theme"""
