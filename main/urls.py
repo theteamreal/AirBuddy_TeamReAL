@@ -22,7 +22,14 @@ urlpatterns = [
     
     
     # Policy Simulation
-    path('policy-simulation/', views.policy_simulation, name='policy_simulation'),
+     path('policies/', views.policies, name='policies'),
+    path('policies/create/', views.create_policy, name='create_policy'),
+    path('policies/<int:policy_id>/vote/', views.vote_policy, name='vote_policy'),
+    # darsh - Added URL for adding comments to policies
+    path('policies/<int:policy_id>/comment/', views.comment_policy, name='comment_policy'),
+    # darsh - Added URLs for deleting policies and comments
+    path('policies/<int:policy_id>/delete/', views.delete_policy, name='delete_policy'),
+    path('comments/<int:comment_id>/delete/', views.delete_comment, name='delete_comment'),
       # Multi-city forecast URLs
     path('forecasts/', views.forecasts, name='forecasts'),
     path('forecasts/<str:city>/', views.forecasts, name='forecasts_city'),
@@ -33,4 +40,5 @@ urlpatterns = [
     # API endpoints (optional)
     path('api/aqi/', views.get_city_aqi_api, name='api_city_aqi'),
     path('api/forecast/', views.get_city_forecast_api, name='api_city_forecast'),
+    path('policy-simulation/', views.policy_simulation, name='policy_simulation'),
 ]

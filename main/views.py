@@ -16,6 +16,10 @@ from .aqi_predictor import predict_aqi, get_current_aqi, train_model
 
 from .aqi_predictor import predict_aqi 
 import os
+from .models import UserHealthProfile, Policy, PolicyVote, AQIData, AQIForecast, PolicyComment
+from .forms import HealthProfileForm, PolicyForm
+from datetime import datetime, timedelta
+import random
 
 def home(request):
     """Landing page - Capture The Flag theme"""
@@ -143,7 +147,8 @@ def policies(request):
     policy_type = request.GET.get('type', '')
     status = request.GET.get('status', '')
     
-    policies_list = Policy.objects.all()
+    # darsh - Added prefetch_related for comments to load comments with policies
+    policies_list = Policy.objects.prefetch_related('comments', 'comments__user').all()
     
     if policy_type:
         policies_list = policies_list.filter(policy_type=policy_type)
@@ -232,6 +237,74 @@ def vote_policy(request, policy_id):
     
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
+
+# darsh - Added comment_policy view for adding comments to policies
+@login_required
+def comment_policy(request, policy_id):
+    """Add comment to a policy (AJAX)"""
+    if request.method == 'POST':
+        policy = get_object_or_404(Policy, id=policy_id)
+        comment_text = request.POST.get('comment', '').strip()
+        
+        if not comment_text:
+            return JsonResponse({'error': 'Comment cannot be empty'}, status=400)
+        
+        # Create comment
+        comment = PolicyComment.objects.create(
+            user=request.user,
+            policy=policy,
+            comment=comment_text
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'comment_id': comment.id,
+            'username': request.user.username,
+            'comment': comment_text,
+            'created_at': comment.created_at.strftime('%d %b %Y, %H:%M'),
+            'comment_count': policy.comments.count()
+        })
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+# darsh - Added delete_policy view for policy owners to delete their policies
+@login_required
+def delete_policy(request, policy_id):
+    """Delete a policy (only by owner)"""
+    if request.method == 'POST':
+        policy = get_object_or_404(Policy, id=policy_id)
+        
+        # Check if user is the owner
+        if policy.proposed_by != request.user:
+            return JsonResponse({'error': 'You can only delete your own policies'}, status=403)
+        
+        policy.delete()
+        return JsonResponse({'success': True})
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+# darsh - Added delete_comment view for comment owners to delete their comments
+@login_required
+def delete_comment(request, comment_id):
+    """Delete a comment (only by owner)"""
+    if request.method == 'POST':
+        comment = get_object_or_404(PolicyComment, id=comment_id)
+        
+        # Check if user is the owner
+        if comment.user != request.user:
+            return JsonResponse({'error': 'You can only delete your own comments'}, status=403)
+        
+        policy_id = comment.policy.id
+        comment.delete()
+        
+        # Get updated comment count
+        comment_count = PolicyComment.objects.filter(policy_id=policy_id).count()
+        
+        return JsonResponse({'success': True, 'comment_count': comment_count})
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 @login_required
 def aqi_map(request):

@@ -1,254 +1,75 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
-
-{% block title %}Policy Proposals - Pollution Platform{% endblock %}
-
+{% block title %}Policy Proposals{% endblock %}
 {% block extra_css %}
 <style>
-    .policy-card {
-        background: #fff;
-        border: 3px solid #000;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 6px 6px 0 rgba(0,0,0,0.1);
-        position: relative;
-    }
-
-    .policy-card::after {
-        content: '';
-        position: absolute;
-        top: -3px;
-        right: -3px;
-        width: 16px;
-        height: 16px;
-        background: #7bed9f;
-        border: 3px solid #000;
-    }
-
-    .vote-buttons {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
-
-    .vote-btn {
-        padding: 0.5rem 1rem;
-        border: 2px solid #000;
-        background: #fff;
-        cursor: pointer;
-        font-family: 'Courier New', monospace;
-        font-weight: bold;
-        transition: all 0.2s;
-    }
-
-    .vote-btn:hover {
-        transform: translateY(-2px);
-    }
-
-    .vote-btn.agree {
-        color: #7bed9f;
-        border-color: #7bed9f;
-    }
-
-    .vote-btn.agree:hover,
-    .vote-btn.agree.active {
-        background: #7bed9f;
-        color: #000;
-    }
-
-    .vote-btn.disagree {
-        color: #ff6b6b;
-        border-color: #ff6b6b;
-    }
-
-    .vote-btn.disagree:hover,
-    .vote-btn.disagree.active {
-        background: #ff6b6b;
-        color: #fff;
-    }
-
-    .filter-bar {
-        background: #f0f0f0;
-        border: 2px solid #000;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        align-items: center;
-    }
-
-    .progress-bar {
-        width: 100%;
-        height: 24px;
-        background: #f0f0f0;
-        border: 2px solid #000;
-        position: relative;
-        margin-top: 0.5rem;
-    }
-
-    .progress-fill {
-        height: 100%;
-        background: #7bed9f;
-        transition: width 0.3s;
-    }
-
-    .progress-text {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-weight: bold;
-        font-size: 0.85rem;
-    }
+.policy-card{background:#fff;border:3px solid #000;padding:1.5rem;margin-bottom:1.5rem;position:relative}
+.policy-header{display:flex;justify-content:space-between;align-items:start;margin-bottom:1rem}
+.vote-btn{padding:0.5rem 1rem;border:2px solid #000;background:#fff;cursor:pointer;margin-right:0.5rem}
+.vote-btn.agree{color:#7bed9f;border-color:#7bed9f}
+.vote-btn.agree.active{background:#7bed9f;color:#000}
+.vote-btn.disagree{color:#ff6b6b;border-color:#ff6b6b}
+.vote-btn.disagree.active{background:#ff6b6b;color:#fff}
+.filter-bar{background:#f0f0f0;border:2px solid #000;padding:1rem;margin-bottom:1.5rem;display:flex;gap:1rem}
+.progress-bar{width:100%;height:20px;background:#f0f0f0;border:2px solid #000;position:relative}
+.progress-fill{height:100%;background:#7bed9f}
+.progress-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:0.8rem}
+.comments-section{margin-top:1rem;padding-top:1rem;border-top:2px dashed #ccc}
+.comments-list{display:none}.comments-list.visible{display:block}
+.comment-item{background:#f9f9f9;padding:1rem;margin-bottom:0.5rem;border:1px solid #ddd;position:relative}
+.add-comment-form{display:flex;gap:0.5rem;margin-top:1rem}
+.comment-input{flex:1;padding:0.5rem;border:2px solid #000}
+.comment-submit-btn{padding:0.5rem 1rem;background:#000;color:#7bed9f;border:none;cursor:pointer}
+.delete-btn{background:#ff6b6b;color:#fff;border:none;padding:0.3rem 0.6rem;cursor:pointer;font-size:0.8rem}
+.delete-btn:hover{background:#cc0000}
+.delete-policy-btn{position:absolute;top:10px;right:10px}
+.delete-comment-btn{position:absolute;top:5px;right:5px}
 </style>
 {% endblock %}
-
 {% block content %}
-<div class="card" style="background: #000; color: #7bed9f; border-color: #7bed9f;">
-    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">⚖️ POLICY PROPOSALS</h1>
-    <p style="opacity: 0.8;">Community-driven pollution control initiatives</p>
+<div class="card" style="background:#000;color:#7bed9f;"><h1>Policy Proposals</h1><p>Community-driven pollution control initiatives</p></div>
+<div style="text-align:right;margin:1rem 0;"><a href="{% url 'create_policy' %}" class="btn">+ Propose New Policy</a></div>
+<div class="filter-bar"><b>FILTER:</b>
+<form method="get" style="display:flex;gap:1rem;flex:1;">
+<select name="type" onchange="this.form.submit()"><option value="">All Types</option>{% for pt in policy_types %}<option value="{{ pt.0 }}" {% if selected_type == pt.0 %}selected{% endif %}>{{ pt.1 }}</option>{% endfor %}</select>
+<select name="status" onchange="this.form.submit()"><option value="">All Status</option><option value="PROPOSED" {% if selected_status == "PROPOSED" %}selected{% endif %}>Proposed</option><option value="UNDER_REVIEW" {% if selected_status == "UNDER_REVIEW" %}selected{% endif %}>Under Review</option><option value="IMPLEMENTED" {% if selected_status == "IMPLEMENTED" %}selected{% endif %}>Implemented</option><option value="REJECTED" {% if selected_status == "REJECTED" %}selected{% endif %}>Rejected</option></select>
+{% if selected_type or selected_status %}<a href="{% url 'policies' %}" class="btn">Clear</a>{% endif %}
+</form></div>
+{% for policy in policies %}
+<div class="policy-card" data-policy-id="{{ policy.id }}">
+{% if policy.proposed_by == request.user %}<button class="delete-btn delete-policy-btn" onclick="deletePolicy({{ policy.id }})">Delete Policy</button>{% endif %}
+<div class="policy-header"><h3>{{ policy.title }}</h3><span class="aqi-badge">{{ policy.get_policy_type_display }}</span></div>
+<p>{{ policy.description }}</p>
+<div style="background:#f9f9f9;padding:0.5rem;margin:1rem 0;">
+<span>By: <b>Anonymous Citizen</b></span> | <span>{{ policy.created_at|date:"d M Y" }}</span>
+<div class="progress-bar"><div class="progress-fill" style="width:{{ policy.agreement_percentage }}%"></div><div class="progress-text">{{ policy.agreement_percentage }}%</div></div>
 </div>
-
-<div style="text-align: right; margin-bottom: 1rem;">
-    <a href="{% url 'create_policy' %}" class="btn">+ Propose New Policy</a>
+<div>
+<button class="vote-btn agree {% if user_votes|get_item:policy.id == 'AGREE' %}active{% endif %}" onclick="vote({{ policy.id }},'AGREE')">AGREE (<span class="agree-count">{{ policy.agree_count }}</span>)</button>
+<button class="vote-btn disagree {% if user_votes|get_item:policy.id == 'DISAGREE' %}active{% endif %}" onclick="vote({{ policy.id }},'DISAGREE')">DISAGREE (<span class="disagree-count">{{ policy.disagree_count }}</span>)</button>
+<span>Total: <b class="total-votes">{{ policy.total_votes }}</b></span>
 </div>
-
-<div class="filter-bar">
-    <span style="font-weight: bold;">FILTER:</span>
-    <form method="get" style="display: flex; gap: 1rem; flex-wrap: wrap; flex: 1;">
-        <select name="type" class="form-select" style="width: auto; min-width: 200px;" onchange="this.form.submit()">
-            <option value="">All Types</option>
-            {% for value, label in policy_types %}
-            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-        
-        <select name="status" class="form-select" style="width: auto; min-width: 200px;" onchange="this.form.submit()">
-            <option value="">All Status</option>
-            <option value="PROPOSED" {% if selected_status == 'PROPOSED' %}selected{% endif %}>Proposed</option>
-            <option value="UNDER_REVIEW" {% if selected_status == 'UNDER_REVIEW' %}selected{% endif %}>Under Review</option>
-            <option value="IMPLEMENTED" {% if selected_status == 'IMPLEMENTED' %}selected{% endif %}>Implemented</option>
-            <option value="REJECTED" {% if selected_status == 'REJECTED' %}selected{% endif %}>Rejected</option>
-        </select>
-        
-        {% if selected_type or selected_status %}
-        <a href="{% url 'policies' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Clear Filters</a>
-        {% endif %}
-    </form>
+<div class="comments-section"><b>Comments</b> <span class="comment-count-{{ policy.id }}">{{ policy.comments.count }}</span> <button class="btn btn-secondary" onclick="toggleComments({{ policy.id }})">Show</button>
+<div class="comments-list" id="comments-{{ policy.id }}">
+{% for c in policy.comments.all %}
+<div class="comment-item" data-comment-id="{{ c.id }}">
+{% if c.user == request.user %}<button class="delete-btn delete-comment-btn" onclick="deleteComment({{ c.id }},{{ policy.id }})">X</button>{% endif %}
+<b>Anonymous</b> - {{ c.created_at|date:"d M Y" }}
+<p>{{ c.comment }}</p>
 </div>
-
-{% if policies %}
-    {% for policy in policies %}
-    <div class="policy-card" data-policy-id="{{ policy.id }}">
-        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-            <h3 style="font-size: 1.3rem; margin: 0;">{{ policy.title }}</h3>
-            <div style="display: flex; gap: 0.5rem;">
-                <span class="aqi-badge">{{ policy.get_policy_type_display }}</span>
-                <span class="aqi-badge {% if policy.status == 'PROPOSED' %}aqi-moderate{% elif policy.status == 'UNDER_REVIEW' %}aqi-unhealthy-sensitive{% elif policy.status == 'IMPLEMENTED' %}aqi-good{% else %}aqi-unhealthy{% endif %}">
-                    {{ policy.get_status_display }}
-                </span>
-            </div>
-        </div>
-        
-        <p style="margin-bottom: 1rem; color: #444;">{{ policy.description }}</p>
-        
-        <div style="background: #f9f9f9; padding: 0.8rem; border: 2px solid #e0e0e0; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span style="font-size: 0.9rem; color: #666;">Proposed by: <strong>{{ policy.proposed_by.username }}</strong></span>
-                <span style="font-size: 0.85rem; color: #999;">{{ policy.created_at|date:"d M Y" }}</span>
-            </div>
-            
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ policy.agreement_percentage }}%"></div>
-                <div class="progress-text">{{ policy.agreement_percentage }}% Agreement</div>
-            </div>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div class="vote-buttons">
-                <button class="vote-btn agree {% if user_votes|get_item:policy.id == 'AGREE' %}active{% endif %}" 
-                        onclick="vote({{ policy.id }}, 'AGREE')">
-                    ✓ AGREE (<span class="agree-count">{{ policy.agree_count }}</span>)
-                </button>
-                <button class="vote-btn disagree {% if user_votes|get_item:policy.id == 'DISAGREE' %}active{% endif %}" 
-                        onclick="vote({{ policy.id }}, 'DISAGREE')">
-                    ✗ DISAGREE (<span class="disagree-count">{{ policy.disagree_count }}</span>)
-                </button>
-            </div>
-            
-            <div style="font-size: 0.9rem; color: #666;">
-                Total votes: <strong class="total-votes">{{ policy.total_votes }}</strong>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-{% else %}
-    <div class="card">
-        <p style="text-align: center; padding: 3rem; color: #666;">
-            No policies found matching your filters.
-        </p>
-    </div>
-{% endif %}
+{% empty %}<div id="no-comments-{{ policy.id }}">No comments yet.</div>{% endfor %}
+<form class="add-comment-form" onsubmit="addComment(event,{{ policy.id }})"><textarea class="comment-input" id="comment-input-{{ policy.id }}" placeholder="Add comment..." required></textarea><button type="submit" class="comment-submit-btn">Post</button></form>
+</div></div>
+</div>
+{% empty %}<div class="card">No policies found.</div>{% endfor %}
 {% endblock %}
-
 {% block extra_js %}
 <script>
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-function vote(policyId, voteType) {
-    const card = document.querySelector(`[data-policy-id="${policyId}"]`);
-    const agreeBtn = card.querySelector('.vote-btn.agree');
-    const disagreeBtn = card.querySelector('.vote-btn.disagree');
-    
-    fetch(`/policies/${policyId}/vote/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': getCookie('csrftoken')
-        },
-        body: `vote=${voteType}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Update vote counts
-            card.querySelector('.agree-count').textContent = data.agree_count;
-            card.querySelector('.disagree-count').textContent = data.disagree_count;
-            card.querySelector('.total-votes').textContent = data.agree_count + data.disagree_count;
-            
-            // Update progress bar
-            card.querySelector('.progress-fill').style.width = data.agreement_percentage + '%';
-            card.querySelector('.progress-text').textContent = data.agreement_percentage + '% Agreement';
-            
-            // Update button states
-            agreeBtn.classList.remove('active');
-            disagreeBtn.classList.remove('active');
-            
-            if (voteType === 'AGREE') {
-                agreeBtn.classList.add('active');
-            } else {
-                disagreeBtn.classList.add('active');
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to submit vote. Please try again.');
-    });
-}
+function getCookie(n){var v=null;if(document.cookie)document.cookie.split(';').forEach(function(c){if(c.trim().indexOf(n+'=')==0)v=decodeURIComponent(c.trim().substring(n.length+1))});return v}
+function vote(id,t){fetch('/policies/'+id+'/vote/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:'vote='+t}).then(function(r){return r.json()}).then(function(d){if(d.success){var c=document.querySelector('[data-policy-id="'+id+'"]');c.querySelector('.agree-count').textContent=d.agree_count;c.querySelector('.disagree-count').textContent=d.disagree_count;c.querySelector('.total-votes').textContent=d.agree_count+d.disagree_count;c.querySelector('.progress-fill').style.width=d.agreement_percentage+'%';c.querySelector('.progress-text').textContent=d.agreement_percentage+'%';c.querySelectorAll('.vote-btn').forEach(function(b){b.classList.remove('active')});c.querySelector('.vote-btn.'+t.toLowerCase()).classList.add('active')}})}
+function toggleComments(id){document.getElementById('comments-'+id).classList.toggle('visible')}
+function addComment(e,id){e.preventDefault();var i=document.getElementById('comment-input-'+id),t=i.value.trim();if(!t)return;fetch('/policies/'+id+'/comment/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:'comment='+encodeURIComponent(t)}).then(function(r){return r.json()}).then(function(d){if(d.success){var n=document.getElementById('no-comments-'+id);if(n)n.remove();var x=document.createElement('div');x.className='comment-item';x.setAttribute('data-comment-id',d.comment_id);x.innerHTML='<button class="delete-btn delete-comment-btn" onclick="deleteComment('+d.comment_id+','+id+')">X</button><b>Anonymous</b> - '+d.created_at+'<p>'+d.comment+'</p>';var l=document.getElementById('comments-'+id);l.insertBefore(x,l.querySelector('.add-comment-form'));document.querySelector('.comment-count-'+id).textContent=d.comment_count;i.value=''}})}
+function deletePolicy(id){if(!confirm('Are you sure you want to delete this policy?'))return;fetch('/policies/'+id+'/delete/',{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}}).then(function(r){return r.json()}).then(function(d){if(d.success){document.querySelector('[data-policy-id="'+id+'"]').remove()}else{alert(d.error||'Failed to delete')}})}
+function deleteComment(commentId,policyId){if(!confirm('Delete this comment?'))return;fetch('/comments/'+commentId+'/delete/',{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}}).then(function(r){return r.json()}).then(function(d){if(d.success){document.querySelector('[data-comment-id="'+commentId+'"]').remove();document.querySelector('.comment-count-'+policyId).textContent=d.comment_count}else{alert(d.error||'Failed to delete')}})}
 </script>
 {% endblock %}

@@ -128,6 +128,21 @@ class PolicyVote(models.Model):
         return f"{self.user.username} - {self.vote} on {self.policy.title}"
 
 
+# darsh - Added PolicyComment model for comment feature on policies
+class PolicyComment(models.Model):
+    """Comments on policy proposals"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='policy_comments')
+    policy = models.ForeignKey(Policy, on_delete=models.CASCADE, related_name='comments')
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} on {self.policy.title[:30]}"
+
+
 class AQIData(models.Model):
     """Air Quality Index data for different areas"""
     area = models.CharField(max_length=100)
@@ -179,5 +194,17 @@ class AQIData(models.Model):
         return max(sources, key=sources.get)
 
 
-
+class AQIForecast(models.Model):
+    """Forecasted AQI for next 24-72 hours"""
+    area = models.CharField(max_length=100)
+    forecast_date = models.DateTimeField()
+    predicted_aqi = models.IntegerField()
+    confidence = models.FloatField(help_text="Prediction confidence (0-1)")
     
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['forecast_date']
+    
+    def __str__(self):
+        return f"{self.area} - {self.forecast_date.strftime('%Y-%m-%d')} - AQI {self.predicted_aqi}"
