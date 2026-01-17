@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+
+{% block title %}AQI Map - Pollution Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    .map-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .area-card {
+        background: #fff;
+        border: 3px solid #000;
+        padding: 1.5rem;
+        position: relative;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .area-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 10px 10px 0 rgba(0,0,0,0.15);
+    }
+
+    .area-card::after {
+        content: '';
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        width: 12px;
+        height: 12px;
+        border: 3px solid #000;
+    }
+
+    .area-card.good::after { background: #7bed9f; }
+    .area-card.moderate::after { background: #ffd93d; }
+    .area-card.unhealthy-sensitive::after { background: #ffb347; }
+    .area-card.unhealthy::after { background: #ff6b6b; }
+    .area-card.very-unhealthy::after { background: #8b00ff; }
+    .area-card.hazardous::after { background: #4a0000; }
+
+    .area-name {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .aqi-value {
+        font-size: 3rem;
+        font-weight: bold;
+        text-align: center;
+        margin: 1rem 0;
+    }
+
+    .pm-values {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .pm-box {
+        background: #f9f9f9;
+        border: 2px solid #000;
+        padding: 0.5rem;
+        text-align: center;
+    }
+
+    .source-breakdown {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 2px solid #e0e0e0;
+    }
+
+    .source-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.3rem 0;
+        font-size: 0.9rem;
+    }
+
+    .source-bar {
+        flex: 1;
+        height: 8px;
+        background: #e0e0e0;
+        margin: 0 0.5rem;
+        border: 1px solid #000;
+        position: relative;
+    }
+
+    .source-fill {
+        height: 100%;
+        background: #7bed9f;
+    }
+
+    .filter-panel {
+        background: #f0f0f0;
+        border: 2px solid #000;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .legend-color {
+        width: 24px;
+        height: 24px;
+        border: 2px solid #000;
+    }
+
+    .timeline {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: #fff;
+        border: 3px solid #000;
+    }
+
+    .timeline-chart {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        height: 200px;
+        margin-top: 1rem;
+        border-bottom: 2px solid #000;
+        border-left: 2px solid #000;
+        padding: 0.5rem;
+        gap: 0.3rem;
+    }
+
+    .timeline-bar {
+        flex: 1;
+        background: #7bed9f;
+        border: 2px solid #000;
+        position: relative;
+        min-width: 20px;
+        transition: all 0.3s;
+    }
+
+    .timeline-bar:hover {
+        background: #ffd93d;
+        transform: scaleY(1.05);
+    }
+
+    .timeline-label {
+        text-align: center;
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #000; color: #7bed9f; border-color: #7bed9f;">
+    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">🗺️ AQI HEATMAP</h1>
+    <p style="opacity: 0.8;">Real-time air quality monitoring across Delhi NCR</p>
+</div>
+
+<div class="filter-panel">
+    <form method="get" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <label style="font-weight: bold;">FILTER BY AREA:</label>
+        <select name="area" class="form-select" style="width: auto; min-width: 250px;" onchange="this.form.submit()">
+            <option value="">All Areas</option>
+            {% for area_item in areas %}
+            <option value="{{ area_item.area }}" {% if selected_area == area_item.area %}selected{% endif %}>
+                {{ area_item.area }}
+            </option>
+            {% endfor %}
+        </select>
+        
+        {% if selected_area %}
+        <a href="{% url 'aqi_map' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Clear Filter</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header">📊 AQI LEGEND</div>
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background: #7bed9f;"></div>
+            <span>Good (0-50)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffd93d;"></div>
+            <span>Moderate (51-100)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffb347;"></div>
+            <span>Unhealthy for Sensitive (101-200)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff6b6b;"></div>
+            <span>Unhealthy (201-300)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #8b00ff;"></div>
+            <span>Very Unhealthy (301-400)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #4a0000;"></div>
+            <span>Hazardous (401+)</span>
+        </div>
+    </div>
+</div>
+
+{% if aqi_data %}
+<div class="map-container">
+    {% for data in aqi_data %}
+    <div class="area-card {% if data.aqi_value <= 50 %}good{% elif data.aqi_value <= 100 %}moderate{% elif data.aqi_value <= 200 %}unhealthy-sensitive{% elif data.aqi_value <= 300 %}unhealthy{% elif data.aqi_value <= 400 %}very-unhealthy{% else %}hazardous{% endif %}">
+        <div class="area-name">{{ data.area }}</div>
+        <div class="aqi-badge {% if data.aqi_value <= 50 %}aqi-good{% elif data.aqi_value <= 100 %}aqi-moderate{% elif data.aqi_value <= 200 %}aqi-unhealthy-sensitive{% elif data.aqi_value <= 300 %}aqi-unhealthy{% elif data.aqi_value <= 400 %}aqi-very-unhealthy{% else %}aqi-hazardous{% endif %}">
+            {{ data.category }}
+        </div>
+        
+        <div class="aqi-value">{{ data.aqi_value }}</div>
+        
+        <div class="pm-values">
+            <div class="pm-box">
+                <div style="font-size: 0.8rem; color: #666;">PM2.5</div>
+                <div style="font-weight: bold; font-size: 1.2rem;">{{ data.pm25|floatformat:1 }}</div>
+            </div>
+            <div class="pm-box">
+                <div style="font-size: 0.8rem; color: #666;">PM10</div>
+                <div style="font-weight: bold; font-size: 1.2rem;">{{ data.pm10|floatformat:1 }}</div>
+            </div>
+        </div>
+        
+        <div class="source-breakdown">
+            <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 0.5rem;">Pollution Sources:</div>
+            
+            <div class="source-item">
+                <span>🚗 Traffic</span>
+                <div class="source-bar">
+                    <div class="source-fill" style="width: {{ data.traffic_contribution }}%;"></div>
+                </div>
+                <span style="font-weight: bold;">{{ data.traffic_contribution|floatformat:1 }}%</span>
+            </div>
+            
+            <div class="source-item">
+                <span>🏭 Industry</span>
+                <div class="source-bar">
+                    <div class="source-fill" style="width: {{ data.industrial_contribution }}%; background: #ffb347;"></div>
+                </div>
+                <span style="font-weight: bold;">{{ data.industrial_contribution|floatformat:1 }}%</span>
+            </div>
+            
+            <div class="source-item">
+                <span>🔥 Crop</span>
+                <div class="source-bar">
+                    <div class="source-fill" style="width: {{ data.crop_burning_contribution }}%; background: #ff6b6b;"></div>
+                </div>
+                <span style="font-weight: bold;">{{ data.crop_burning_contribution|floatformat:1 }}%</span>
+            </div>
+            
+            <div class="source-item">
+                <span>🏗️ Construction</span>
+                <div class="source-bar">
+                    <div class="source-fill" style="width: {{ data.construction_contribution }}%; background: #ffd93d;"></div>
+                </div>
+                <span style="font-weight: bold;">{{ data.construction_contribution|floatformat:1 }}%</span>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #e0e0e0; font-size: 0.85rem; color: #666;">
+            {{ data.timestamp|date:"d M Y, h:i A" }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if selected_area %}
+<div class="timeline">
+    <div class="card-header">📈 24-Hour AQI Trend - {{ selected_area }}</div>
+    <div class="timeline-chart">
+        {% for data in aqi_data|slice:":24" %}
+        <div class="timeline-bar" style="height: {% widthratio data.aqi_value 400 100 %}%;" 
+             title="AQI: {{ data.aqi_value }} at {{ data.timestamp|date:'h:i A' }}">
+        </div>
+        {% endfor %}
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 0.5rem;">
+        <span style="font-size: 0.75rem; color: #666;">24h ago</span>
+        <span style="font-size: 0.75rem; color: #666;">Now</span>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <p style="text-align: center; padding: 3rem; color: #666;">
+        No AQI data available. Please check back later.
+    </p>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top: 2rem; background: #fffbea; border-color: #ffd93d;">
+    <div class="card-header">💡 UNDERSTANDING THE DATA</div>
+    <div style="padding: 0.5rem 0;">
+        <p style="margin-bottom: 0.5rem;"><strong>AQI (Air Quality Index):</strong> A standardized indicator of air quality. Higher values indicate greater health concern.</p>
+        <p style="margin-bottom: 0.5rem;"><strong>PM2.5:</strong> Fine particulate matter ≤2.5 micrometers. Can penetrate deep into lungs.</p>
+        <p style="margin-bottom: 0.5rem;"><strong>PM10:</strong> Particulate matter ≤10 micrometers. Can irritate airways.</p>
+        <p style="margin-bottom: 0;"><strong>Source Breakdown:</strong> Estimated contribution percentage from different pollution sources using AI analysis.</p>
+    </div>
+</div>
+{% endblock %}

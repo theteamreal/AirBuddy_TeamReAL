@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}Capture The Flag - Pollution Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero {
+        text-align: center;
+        padding: 4rem 2rem;
+        position: relative;
+    }
+
+    .hero-title {
+        font-size: 4rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        animation: glitch 3s infinite;
+    }
+
+    .hero-subtitle {
+        font-size: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .flag-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        display: inline-block;
+        animation: wave 2s ease-in-out infinite;
+    }
+
+    @keyframes wave {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(-10deg); }
+        75% { transform: rotate(10deg); }
+    }
+
+    @keyframes glitch {
+        0%, 90%, 100% { transform: translateX(0); }
+        92% { transform: translateX(-2px); }
+        94% { transform: translateX(2px); }
+        96% { transform: translateX(-2px); }
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        margin-top: 3rem;
+    }
+
+    .feature-card {
+        background: #fff;
+        border: 3px solid #000;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 6px 6px 0 rgba(0,0,0,0.1);
+        position: relative;
+    }
+
+    .feature-card::after {
+        content: '';
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        width: 16px;
+        height: 16px;
+        background: #7bed9f;
+        border: 3px solid #000;
+    }
+
+    .feature-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .feature-title {
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .cta-section {
+        text-align: center;
+        margin-top: 4rem;
+        padding: 3rem 2rem;
+        background: #000;
+        color: #7bed9f;
+        border: 4px solid #7bed9f;
+    }
+
+    .cta-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .stats-section {
+        margin-top: 3rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .ascii-art {
+        font-family: monospace;
+        white-space: pre;
+        line-height: 1.2;
+        font-size: 0.7rem;
+        color: #000;
+        margin: 2rem 0;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    
+    <h1 class="hero-title">Pollution Platform</h1>
+    <p class="hero-subtitle">AI-Driven Pollution Source Identification & Policy Platform for Delhi NCR</p>
+    
+   <div class="ascii-art">
+<pre>
+ _____       _ _       _   _       _   _             
+|  __ \     | | |     | | (_)     | | (_)            
+| |__) |   _| | |_   _| |_ _  ___ | |_ _  ___  _ __ 
+|  ___/ | | | | | | | | __| |/ _ \| __| |/ _ \| '__|
+| |   | |_| | | | |_| | |_| | (_) | |_| | (_) | |   
+|_|    \__,_|_|_|\__,_|\__|_|\___/ \__|_|\___/|_|   
+
+        _____  _       _    __                      
+       |  __ \| |     | |  / _|                     
+       | |__) | | __ _| |_| |_ ___  _ __ _ __ ___  
+       |  ___/| |/ _` | __|  _/ _ \| '__| '_ ` _ \ 
+       | |    | | (_| | |_| || (_) | |  | | | | | |
+       |_|    |_|\__,_|\__|_| \___/|_|  |_| |_| |_|
+
+</pre>
+</div>
+
+
+    <div class="cta-buttons">
+        {% if user.is_authenticated %}
+            <a href="{% url 'dashboard' %}" class="btn">→ Go to Dashboard</a>
+        {% else %}
+            <a href="{% url 'register' %}" class="btn">→ Register</a>
+            <a href="{% url 'login' %}" class="btn btn-secondary">→ Join</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="feature-grid">
+    <div class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-title">Pollution Source Detection</div>
+        <p>Identifies main pollution sources using AI - traffic, crop burning, industries with clear explanations.</p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">AQI Prediction & Trends</div>
+        <p>Forecasts air quality for next 24-72 hours and shows long-term seasonal pollution patterns.</p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon">❤️</div>
+        <div class="feature-title">Personalized Health Alerts</div>
+        <p>Area-wise AQI with safety tips for children, elderly, and people with health issues.</p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon">🗺️</div>
+        <div class="feature-title">Visual Pollution Maps</div>
+        <p>Heatmaps, charts, and graphs showing pollution levels across locations and time.</p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon">⚖️</div>
+        <div class="feature-title">Policy Impact Simulation</div>
+        <p>Test effects of pollution control policies with before-and-after comparisons.</p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-title">Community Policies</div>
+        <p>Propose, vote, and discuss pollution control policies with the community.</p>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 3rem;">
+    <div class="card-header">⚡ INITIALIZING SEQUENCE...</div>
+    <div style="padding: 1rem 0;">
+        <p style="margin-bottom: 1rem;">
+            ▶ Delhi-NCR faces recurring air pollution episodes, particularly during winter, caused by a combination of factors such as crop residue burning, vehicular emissions, industrial activity, and meteorological conditions.
+        </p>
+        <p style="margin-bottom: 1rem;">
+            ▶ This platform uses AI and data analysis to identify pollution sources, forecast air quality, and simulate policy impacts to help citizens and authorities make informed decisions.
+        </p>
+        <p>
+            ▶ Join the mission to <strong>POLLUTION.PLATFORM</strong> of clean air for Delhi NCR.
+        </p>
+    </div>
+</div>
+
+<div class="cta-section">
+    <h2 style="font-size: 2rem; margin-bottom: 1rem;">READY TO START?</h2>
+    <p style="font-size: 1.2rem;">Register now to get personalized air quality alerts and participate in policy discussions.</p>
+    {% if not user.is_authenticated %}
+    <div class="cta-buttons">
+        <a href="{% url 'register' %}" class="btn" style="background: #7bed9f; color: #000;">→ Create Account</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="stats-section">
+    <div class="stat-box">
+        <div class="stat-value">389.51</div>
+        <div class="stat-label">Current MODE AQI</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">5+</div>
+        <div class="stat-label">Pollution Sources Tracked</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">72h</div>
+        <div class="stat-label">Forecast Range</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">∞</div>
+        <div class="stat-label">Policy Simulations</div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Policy Proposals - Pollution Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    .policy-card {
+        background: #fff;
+        border: 3px solid #000;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 6px 6px 0 rgba(0,0,0,0.1);
+        position: relative;
+    }
+
+    .policy-card::after {
+        content: '';
+        position: absolute;
+        top: -3px;
+        right: -3px;
+        width: 16px;
+        height: 16px;
+        background: #7bed9f;
+        border: 3px solid #000;
+    }
+
+    .vote-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .vote-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid #000;
+        background: #fff;
+        cursor: pointer;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        transition: all 0.2s;
+    }
+
+    .vote-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .vote-btn.agree {
+        color: #7bed9f;
+        border-color: #7bed9f;
+    }
+
+    .vote-btn.agree:hover,
+    .vote-btn.agree.active {
+        background: #7bed9f;
+        color: #000;
+    }
+
+    .vote-btn.disagree {
+        color: #ff6b6b;
+        border-color: #ff6b6b;
+    }
+
+    .vote-btn.disagree:hover,
+    .vote-btn.disagree.active {
+        background: #ff6b6b;
+        color: #fff;
+    }
+
+    .filter-bar {
+        background: #f0f0f0;
+        border: 2px solid #000;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 24px;
+        background: #f0f0f0;
+        border: 2px solid #000;
+        position: relative;
+        margin-top: 0.5rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: #7bed9f;
+        transition: width 0.3s;
+    }
+
+    .progress-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-weight: bold;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="background: #000; color: #7bed9f; border-color: #7bed9f;">
+    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">⚖️ POLICY PROPOSALS</h1>
+    <p style="opacity: 0.8;">Community-driven pollution control initiatives</p>
+</div>
+
+<div style="text-align: right; margin-bottom: 1rem;">
+    <a href="{% url 'create_policy' %}" class="btn">+ Propose New Policy</a>
+</div>
+
+<div class="filter-bar">
+    <span style="font-weight: bold;">FILTER:</span>
+    <form method="get" style="display: flex; gap: 1rem; flex-wrap: wrap; flex: 1;">
+        <select name="type" class="form-select" style="width: auto; min-width: 200px;" onchange="this.form.submit()">
+            <option value="">All Types</option>
+            {% for value, label in policy_types %}
+            <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        
+        <select name="status" class="form-select" style="width: auto; min-width: 200px;" onchange="this.form.submit()">
+            <option value="">All Status</option>
+            <option value="PROPOSED" {% if selected_status == 'PROPOSED' %}selected{% endif %}>Proposed</option>
+            <option value="UNDER_REVIEW" {% if selected_status == 'UNDER_REVIEW' %}selected{% endif %}>Under Review</option>
+            <option value="IMPLEMENTED" {% if selected_status == 'IMPLEMENTED' %}selected{% endif %}>Implemented</option>
+            <option value="REJECTED" {% if selected_status == 'REJECTED' %}selected{% endif %}>Rejected</option>
+        </select>
+        
+        {% if selected_type or selected_status %}
+        <a href="{% url 'policies' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem;">Clear Filters</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if policies %}
+    {% for policy in policies %}
+    <div class="policy-card" data-policy-id="{{ policy.id }}">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.3rem; margin: 0;">{{ policy.title }}</h3>
+            <div style="display: flex; gap: 0.5rem;">
+                <span class="aqi-badge">{{ policy.get_policy_type_display }}</span>
+                <span class="aqi-badge {% if policy.status == 'PROPOSED' %}aqi-moderate{% elif policy.status == 'UNDER_REVIEW' %}aqi-unhealthy-sensitive{% elif policy.status == 'IMPLEMENTED' %}aqi-good{% else %}aqi-unhealthy{% endif %}">
+                    {{ policy.get_status_display }}
+                </span>
+            </div>
+        </div>
+        
+        <p style="margin-bottom: 1rem; color: #444;">{{ policy.description }}</p>
+        
+        <div style="background: #f9f9f9; padding: 0.8rem; border: 2px solid #e0e0e0; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.9rem; color: #666;">Proposed by: <strong>{{ policy.proposed_by.username }}</strong></span>
+                <span style="font-size: 0.85rem; color: #999;">{{ policy.created_at|date:"d M Y" }}</span>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ policy.agreement_percentage }}%"></div>
+                <div class="progress-text">{{ policy.agreement_percentage }}% Agreement</div>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="vote-buttons">
+                <button class="vote-btn agree {% if user_votes|get_item:policy.id == 'AGREE' %}active{% endif %}" 
+                        onclick="vote({{ policy.id }}, 'AGREE')">
+                    ✓ AGREE (<span class="agree-count">{{ policy.agree_count }}</span>)
+                </button>
+                <button class="vote-btn disagree {% if user_votes|get_item:policy.id == 'DISAGREE' %}active{% endif %}" 
+                        onclick="vote({{ policy.id }}, 'DISAGREE')">
+                    ✗ DISAGREE (<span class="disagree-count">{{ policy.disagree_count }}</span>)
+                </button>
+            </div>
+            
+            <div style="font-size: 0.9rem; color: #666;">
+                Total votes: <strong class="total-votes">{{ policy.total_votes }}</strong>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="card">
+        <p style="text-align: center; padding: 3rem; color: #666;">
+            No policies found matching your filters.
+        </p>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function vote(policyId, voteType) {
+    const card = document.querySelector(`[data-policy-id="${policyId}"]`);
+    const agreeBtn = card.querySelector('.vote-btn.agree');
+    const disagreeBtn = card.querySelector('.vote-btn.disagree');
+    
+    fetch(`/policies/${policyId}/vote/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: `vote=${voteType}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update vote counts
+            card.querySelector('.agree-count').textContent = data.agree_count;
+            card.querySelector('.disagree-count').textContent = data.disagree_count;
+            card.querySelector('.total-votes').textContent = data.agree_count + data.disagree_count;
+            
+            // Update progress bar
+            card.querySelector('.progress-fill').style.width = data.agreement_percentage + '%';
+            card.querySelector('.progress-text').textContent = data.agreement_percentage + '% Agreement';
+            
+            // Update button states
+            agreeBtn.classList.remove('active');
+            disagreeBtn.classList.remove('active');
+            
+            if (voteType === 'AGREE') {
+                agreeBtn.classList.add('active');
+            } else {
+                disagreeBtn.classList.add('active');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to submit vote. Please try again.');
+    });
+}
+</script>
+{% endblock %}
